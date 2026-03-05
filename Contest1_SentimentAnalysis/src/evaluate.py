@@ -1,5 +1,8 @@
 import pandas as pd
 import sys, os
+import argparse
+import time
+from datetime import datetime
 pd.options.display.float_format = '{:.3f}'.format
 pd.set_option('display.max_columns', 10) # for google colab
 pd.set_option('display.max_rows', 10) # for google colab
@@ -155,15 +158,50 @@ class EvaluateModel():
 
         print(report_df, '\n')
 
+    def log_results(self, model_name, params, split, csv_file='evaluation_results.csv'):
+        # Get metrics
+        aspect_prec, aspect_rec, aspect_f1 = self.micro_PRF('aspect')
+        sent_prec, sent_rec, sent_f1 = self.micro_PRF('sentiment')
+        overall_prec, overall_rec, overall_f1 = self.micro_PRF('overall')
+        
+        # Create result row
+        result = {
+            'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'Model': model_name,
+            'Parameters': params,
+            'Split': split,
+            'Aspect_F1': aspect_f1,
+            'Sentiment_F1': sent_f1,
+            'Overall_F1': overall_f1,
+            'Evaluated_File': self.pred_file
+        }
+        
+        # Append to CSV
+        df = pd.DataFrame([result])
+        if not os.path.exists(csv_file):
+            df.to_csv(csv_file, index=False)
+        else:
+            df.to_csv(csv_file, mode='a', header=False, index=False)
+        
+        print(f"Results logged to {csv_file}")
+
 if __name__ == '__main__':
-    args = sys.argv
-    if len(args) != 3:
-        print('INCORRECT ARGUMENTS!!')
-        print('try : $ python evaluate.py contest1_train.csv dev_pred.csv')
-        sys.exit()
-    EVAL = EvaluateModel(args[1], args[2])
+    parser = argparse.ArgumentParser(description='Evaluate Aspect Based Sentiment Analysis')
+    parser.add_argument('gold_file', help='Path to gold standard file (CSV)')
+    parser.add_argument('pred_file', help='Path to prediction file (CSV)')
+    parser.add_argument('--model', default='Unknown', help='Name of the model being evaluated')
+    parser.add_argument('--params', default='None', help='Hyperparameters or notes')
+    parser.add_argument('--split', default='test', help='Content split (train/dev/test)')
+    parser.add_argument('--csv', default='evaluation_log.csv', help='Path to CSV log file')
+    
+    args = parser.parse_args()
+    
+    EVAL = EvaluateModel(args.gold_file, args.pred_file)
     EVAL.check_files()
     EVAL.make_tuple_set()
     EVAL.report_aspect()
     EVAL.report_sentiment()
     EVAL.report_overall()
+    
+    if args.model != 'Unknown':
+        EVAL.log_results(args.model, args.params, args.split, args.csv)

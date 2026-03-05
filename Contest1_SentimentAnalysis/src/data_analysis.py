@@ -1,7 +1,7 @@
 import pandas as pd
 
 try:
-    df = pd.read_csv('contest1_train.csv')
+    df = pd.read_csv('./data/contest1_train.csv')
     print("Columns:", df.columns)
     print("\nUnique Aspects:")
     print(df['aspectCategory'].unique())

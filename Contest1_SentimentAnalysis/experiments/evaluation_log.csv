@@ -1,0 +1,2 @@
+Timestamp,Model,Parameters,Split,Aspect_F1,Sentiment_F1,Overall_F1,Evaluated_File
+2026-03-06 01:00:56,Logistic Baseline,tfidf=5000,test,0.004166666666666667,0,0,submissions/submission_baseline.csv
