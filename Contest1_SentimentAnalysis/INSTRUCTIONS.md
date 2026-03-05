@@ -63,9 +63,53 @@ When you are ready to submit:
 2.  Take the generated `submission_*.csv` file.
 3.  Upload it to the contest platform.
 
-## 5. File Structure
+## 5. Creating a New Model
+
+To create a new experiment while keeping the project organized, follow the standard template using `src/utils.py`.
+
+1.  Create a new file, e.g., `src/experiment_lstm.py`.
+2.  Use this template:
+
+```python
+import pandas as pd
+import sys
+import os
+
+# Add src to path for utils import
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from utils import save_and_evaluate, save_submission, get_paths
+
+def train_model():
+    # 1. Setup
+    paths = get_paths()
+    TRAIN_FILE = paths['train_csv']
+    TEST_FILE = paths['test_csv']
+
+    MODEL_NAME = "My New Model"
+    PARAMS = "Epochs=10, LR=0.001"
+
+    # 2. Load & Prepare Data
+    train_df = pd.read_csv(TRAIN_FILE)
+    test_df = pd.read_csv(TEST_FILE)
+
+    # ... [YOUR TRAINING CODE HERE] ...
+
+    # 3. Evaluate & Log (Validation)
+    # val_results = [{'id': 101, 'aspectCategory': 'food', 'polarity': 'positive'}, ...]
+    # save_and_evaluate(val_results, 'val_preds_new_model.csv', MODEL_NAME, PARAMS, 'dev')
+
+    # 4. Generate Submission
+    # test_results = ...
+    # save_submission(test_results, 'submission_new_model.csv')
+
+if __name__ == "__main__":
+    train_model()
+```
+
+## 6. File Structure
 
 - `src/baseline_logistic.py`: Light-weight baseline.
 - `src/baseline_bert.py`: Deep Learning baseline.
 - `src/evaluate.py`: The official scoring script (modified to support logging).
+- `src/utils.py`: Helper functions for standardized I/O and evaluation.
 - `data/`: Contains `contest1_train.csv` and `contest1_test.csv`.
