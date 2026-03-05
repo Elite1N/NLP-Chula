@@ -264,6 +264,166 @@ def main():
             'polarity': polarity
         })
     
+    # ---------------------------------------------------------
+    # PART D: Prediction on Validation Set (for logging)
+    # ---------------------------------------------------------
+    print("\n=== Predicting on Validation Set (for logging) ===")
+    # We used train_test_split on 'texts' earlier, but we need the original IDs to map back to Gold.
+    # The split was:
+    # train_texts, val_texts, train_labels, val_labels = train_test_split(texts, labels, ...)
+    # This split was on the UNIQUE texts from grouped dataframe.
+    # We need to reconstruct which IDs belong to val set.
+    
+    # Re-run the split logic to get the indices/IDs
+    # grouped = train_df.groupby('id')...
+    # texts = grouped['text'].tolist()
+    # IDs = grouped['id'].tolist()
+    
+    grouped_ids = grouped['id'].tolist()
+    train_ids_split, val_ids_split, _, _ = train_test_split(
+        grouped_ids, labels, test_size=0.1, random_state=42
+    )
+
+    # Now we have the IDs in the validation set: val_ids_split
+    # We need to get the texts for these IDs
+    # We can filter the original dataframe or use the grouped texts
+    
+    val_id_set = set(val_ids_split)
+    
+    # Filter original df to get (id, text) pairs for these validation IDs
+    # Note: A single ID has one text, but multiple aspects.
+    val_rows_df = train_df[train_df['id'].isin(val_id_set)].groupby('id').first().reset_index()
+    val_eval_ids = val_rows_df['id'].tolist()
+    val_eval_texts = val_rows_df['text'].tolist()
+
+    # 1. Predict Aspects on Val
+    val_dataset_aspect = AspectDataset(val_eval_texts, None, tokenizer)
+    val_aspect_logits = trainer_aspect.predict(val_dataset_aspect).predictions
+    val_aspect_probs = torch.sigmoid(torch.tensor(val_aspect_logits)).numpy()
+    
+    val_results_rows = []
+    
+    for i, (text_id, text) in enumerate(zip(val_eval_ids, val_eval_texts)):
+        pred_indices = np.where(val_aspect_probs[i] > 0.5)[0]
+        pred_aspects = [id2aspect[idx] for idx in pred_indices]
+        
+        if not pred_aspects:
+            max_idx = np.argmax(val_aspect_probs[i])
+            pred_aspects = [id2aspect[max_idx]]
+            
+        for aspect in pred_aspects:
+            val_results_rows.append({
+                'id': text_id,
+                'text': text,
+                'aspect': aspect
+            })
+            
+    # 2. Predict Sentiment on Val
+    if val_results_rows:
+        val_inf_texts = [r['text'] for r in val_results_rows]
+        val_inf_aspects = [r['aspect'] for r in val_results_rows]
+        
+        val_inf_dataset = SentimentDataset(val_inf_texts, val_inf_aspects, None, tokenizer)
+        val_sent_logits = trainer_sent.predict(val_inf_dataset).predictions
+        val_sent_ids = np.argmax(val_sent_logits, axis=-1)
+        
+        final_val_output = []
+        for i, r in enumerate(val_results_rows):
+            polarity = id2polarity[val_sent_ids[i]]
+            final_val_output.append({
+                'id': r['id'],
+                'aspectCategory': r['aspect'],
+                'polarity': polarity
+            })
+            
+        val_preds_file = os.path.join(SCRIPT_DIR, '..', 'val_preds_bert.csv')
+        pd.DataFrame(final_val_output).to_csv(val_preds_file, index=False)
+        print(f"Validation predictions saved to {val_preds_file}")
+        
+        # Evaluate
+        import sys
+        import subprocess
+        print("Running evaluation on DEV...")
+        eval_script = os.path.join(SCRIPT_DIR, "evaluate.py")
+        subprocess.call([
+            sys.executable,
+            eval_script,
+            TRAIN_FILE,
+            val_preds_file,
+            '--model', 'DistilBERT Baseline',
+            '--params', f'Ep={EPOCHS}, LR=2e-5',
+            '--split', 'dev'
+        ])
+        
+    # ---------------------------------------------------------
+    # PART E: Prediction on Training Set (for logging)
+    # ---------------------------------------------------------
+    print("\n=== Predicting on Training Subset (for logging) ===")
+    
+    # Reconstruct training IDs and texts
+    # train_ids_split contains the training IDs
+    train_id_set = set(train_ids_split)
+    
+    train_rows_df = train_df[train_df['id'].isin(train_id_set)].groupby('id').first().reset_index()
+    train_eval_ids = train_rows_df['id'].tolist()
+    train_eval_texts = train_rows_df['text'].tolist()
+
+    # 1. Predict Aspects on Train
+    train_dataset_aspect = AspectDataset(train_eval_texts, None, tokenizer)
+    train_aspect_logits = trainer_aspect.predict(train_dataset_aspect).predictions
+    train_aspect_probs = torch.sigmoid(torch.tensor(train_aspect_logits)).numpy()
+    
+    train_results_rows = []
+    
+    for i, (text_id, text) in enumerate(zip(train_eval_ids, train_eval_texts)):
+        pred_indices = np.where(train_aspect_probs[i] > 0.5)[0] # Threshold
+        pred_aspects = [id2aspect[idx] for idx in pred_indices]
+        
+        if not pred_aspects:
+            max_idx = np.argmax(train_aspect_probs[i])
+            pred_aspects = [id2aspect[max_idx]]
+            
+        for aspect in pred_aspects:
+            train_results_rows.append({
+                'id': text_id,
+                'text': text,
+                'aspect': aspect
+            })
+            
+    # 2. Predict Sentiment on Train
+    if train_results_rows:
+        train_inf_texts = [r['text'] for r in train_results_rows]
+        train_inf_aspects = [r['aspect'] for r in train_results_rows]
+        
+        train_inf_dataset = SentimentDataset(train_inf_texts, train_inf_aspects, None, tokenizer)
+        train_sent_logits = trainer_sent.predict(train_inf_dataset).predictions
+        train_sent_ids = np.argmax(train_sent_logits, axis=-1)
+        
+        final_train_output = []
+        for i, r in enumerate(train_results_rows):
+            polarity = id2polarity[train_sent_ids[i]]
+            final_train_output.append({
+                'id': r['id'],
+                'aspectCategory': r['aspect'],
+                'polarity': polarity
+            })
+            
+        train_preds_file = os.path.join(SCRIPT_DIR, '..', 'train_preds_bert.csv')
+        pd.DataFrame(final_train_output).to_csv(train_preds_file, index=False)
+        print(f"Training predictions saved to {train_preds_file}")
+        
+        # Evaluate
+        print("Running evaluation on TRAIN...")
+        subprocess.call([
+            sys.executable,
+            eval_script,
+            TRAIN_FILE,
+            train_preds_file,
+            '--model', 'DistilBERT Baseline',
+            '--params', f'Ep={EPOCHS}, LR=2e-5',
+            '--split', 'train'
+        ])
+    
     # Save
     submission_df = pd.DataFrame(final_output)
     submission_df.to_csv(SUBMISSION_FILE, index=False)

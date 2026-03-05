@@ -1,0 +1,3 @@
+Timestamp,Model,Parameters,Split,Aspect_F1,Sentiment_F1,Overall_F1,Evaluated_File
+2026-03-06 02:36:49,Logistic Baseline,"C=1.0, tfidf=5000",dev,0.6827586206896552,0.6219281663516067,0.4603448275862069,C:\Work\Chula\NLP\Contest1_SentimentAnalysis\src\..\val_preds_logistic.csv
+2026-03-06 02:36:50,Logistic Baseline,"C=1.0, tfidf=5000",train,0.7157133744418457,0.7484805984104721,0.6119498192642994,C:\Work\Chula\NLP\Contest1_SentimentAnalysis\src\..\train_preds_logistic.csv

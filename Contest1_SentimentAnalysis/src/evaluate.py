@@ -192,9 +192,15 @@ if __name__ == '__main__':
     parser.add_argument('--model', default='Unknown', help='Name of the model being evaluated')
     parser.add_argument('--params', default='None', help='Hyperparameters or notes')
     parser.add_argument('--split', default='test', help='Content split (train/dev/test)')
-    parser.add_argument('--csv', default='evaluation_log.csv', help='Path to CSV log file')
+    parser.add_argument('--csv', default=None, help='Path to CSV log file (default: evaluation_{split}_log.csv)')
     
     args = parser.parse_args()
+    
+    # Determined default CSV name based on model
+    csv_file = args.csv
+    if csv_file is None:
+        safe_model_name = "".join([c if c.isalnum() else "_" for c in args.model])
+        csv_file = f'evaluation_{safe_model_name}.csv'
     
     EVAL = EvaluateModel(args.gold_file, args.pred_file)
     EVAL.check_files()
@@ -204,4 +210,4 @@ if __name__ == '__main__':
     EVAL.report_overall()
     
     if args.model != 'Unknown':
-        EVAL.log_results(args.model, args.params, args.split, args.csv)
+        EVAL.log_results(args.model, args.params, args.split, csv_file)

@@ -1,6 +1,12 @@
 import pandas as pd
 import numpy as np
 import os
+import sys
+
+# Add src to path for utils import
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from utils import save_and_evaluate, save_submission, get_paths
+
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -11,11 +17,13 @@ from sklearn.metrics import classification_report, accuracy_score
 
 def train_baseline():
     # Setup Paths
-    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    DATA_DIR = os.path.join(SCRIPT_DIR, '..', 'data')
-    TRAIN_FILE = os.path.join(DATA_DIR, 'contest1_train.csv')
-    TEST_FILE = os.path.join(DATA_DIR, 'contest1_test.csv')
-    SUBMISSION_FILE = os.path.join(SCRIPT_DIR, '..', 'submission_baseline.csv')
+    paths = get_paths()
+    TRAIN_FILE = paths['train_csv']
+    TEST_FILE = paths['test_csv']
+    
+    # Model Config
+    MODEL_NAME = "Logistic Baseline"
+    PARAMS = "C=1.0, tfidf=5000"
 
     # Load Data
     print(f"Loading data from {TRAIN_FILE}...")
@@ -99,6 +107,63 @@ def train_baseline():
             print(f"Sentiment Acc for {aspect}: {acc:.4f} (Samples: {len(X_s_train)})")
 
     
+    # Predict on Validation Set for Evaluation Logging
+    print("\n--- Model Evaluation (Dev & Train) ---")
+
+    # --- 1. EVALUATE ON DEV (Validation) ---
+    print("\nPredicting on Validation Set...")
+    # Use full X_val which is indexed by IDs in ids_val
+    val_texts = X_val
+    val_ids = ids_val
+    
+    val_aspects_bin = aspect_pipeline.predict(X_val)
+    val_aspects_lists = mlb.inverse_transform(val_aspects_bin)
+    
+    val_results = []
+    
+    for text_id, text, aspects in zip(val_ids, val_texts, val_aspects_lists):
+        final_aspects = list(aspects)
+        if not final_aspects:
+            final_aspects = ['anecdotes/miscellaneous']
+            
+        for aspect in final_aspects:
+            if aspect in sentiment_models:
+                sentiment = sentiment_models[aspect].predict([text])[0]
+            else:
+                sentiment = 'neutral' 
+            
+            val_results.append({'id': text_id, 'aspectCategory': aspect, 'polarity': sentiment})
+            
+    # Use standard Util function
+    save_and_evaluate(val_results, 'val_preds_logistic.csv', MODEL_NAME, PARAMS, 'dev')
+
+    # --- 2. EVALUATE ON TRAIN (Training Subset) ---
+    print("\nPredicting on Training Subset...")
+    # Use full X_train which is indexed by IDs in ids_train
+    train_texts_subset = X_train
+    train_ids_subset = ids_train
+    
+    train_aspects_bin = aspect_pipeline.predict(train_texts_subset)
+    train_aspects_lists = mlb.inverse_transform(train_aspects_bin)
+    
+    train_results = []
+    
+    for text_id, text, aspects in zip(train_ids_subset, train_texts_subset, train_aspects_lists):
+        final_aspects = list(aspects)
+        if not final_aspects:
+            final_aspects = ['anecdotes/miscellaneous']
+            
+        for aspect in final_aspects:
+            if aspect in sentiment_models:
+                sentiment = sentiment_models[aspect].predict([text])[0]
+            else:
+                sentiment = 'neutral' 
+            
+            train_results.append({'id': text_id, 'aspectCategory': aspect, 'polarity': sentiment})
+            
+    # Use standard Util function
+    save_and_evaluate(train_results, 'train_preds_logistic.csv', MODEL_NAME, PARAMS, 'train')
+
     print("\nPredicting on Test Set...")
     # 1. Predict Aspects
     test_texts = test_df['text']
@@ -127,12 +192,8 @@ def train_baseline():
                 'polarity': sentiment
             })
             
-    submission_df = pd.DataFrame(results)
-    
-    # Save
-    print(f"Saving to {SUBMISSION_FILE}")
-    submission_df.to_csv(SUBMISSION_FILE, index=False)
-    print(submission_df.head())
+    # Save submission
+    save_submission(results, 'submission_baseline.csv')
 
 if __name__ == "__main__":
     train_baseline()
