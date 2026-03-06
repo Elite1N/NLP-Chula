@@ -7,19 +7,21 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trai
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from transformers import DataCollatorWithPadding
+from utils import save_and_evaluate, save_submission, get_paths
 
 # Configuration
 MODEL_NAME = "distilbert-base-uncased" # Faster than BERT, good for baseline
 BATCH_SIZE = 16 
 EPOCHS = 2
 MAX_LEN = 128
+PARAMS = f"Ep={EPOCHS}, LR=2e-5"
 
 # Setup Paths
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(SCRIPT_DIR, '..', 'data')
-TRAIN_FILE = os.path.join(DATA_DIR, 'contest1_train.csv')
-TEST_FILE = os.path.join(DATA_DIR, 'contest1_test.csv')
-SUBMISSION_FILE = os.path.join(SCRIPT_DIR, '..', 'submission_bert.csv')
+paths = get_paths()
+TRAIN_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'train_split.csv')
+DEV_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'dev_split.csv')
+TEST_FILE = paths['test_csv']
+# SUBMISSION_FILE removed, using utils instead
 
 # Labels
 ASPECTS = ['ambience', 'anecdotes/miscellaneous', 'food', 'price', 'service']
@@ -90,34 +92,48 @@ def main():
     print(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}")
     
     # 1. Load Data
-    if not os.path.exists(TRAIN_FILE):
-        print(f"Error: {TRAIN_FILE} not found.")
+    # 1. Load Data
+    if not os.path.exists(TRAIN_SPLIT_FILE) or not os.path.exists(DEV_SPLIT_FILE):
+        print(f"Error: Splits not found. Please run create_splits.py first.")
         return
-    train_df = pd.read_csv(TRAIN_FILE)
+    train_df = pd.read_csv(TRAIN_SPLIT_FILE)
+    val_df = pd.read_csv(DEV_SPLIT_FILE)
     test_df = pd.read_csv(TEST_FILE)
 
     # ---------------------------------------------------------
     # PART A: Train Aspect Detection Model
     # ---------------------------------------------------------
     print("\n=== Training Aspect Detection Model ===")
-    grouped = train_df.groupby('id').agg({
+    
+    # Process Train Split
+    train_grouped = train_df.groupby('id').agg({
         'text': 'first',
         'aspectCategory': lambda x: list(set(x))
     }).reset_index()
 
-    texts = grouped['text'].tolist()
-    aspect_lists = grouped['aspectCategory'].tolist()
+    train_texts = train_grouped['text'].tolist()
+    train_aspect_lists = train_grouped['aspectCategory'].tolist()
     
-    # Multi-hot encoding
-    labels = np.zeros((len(texts), len(ASPECTS)))
-    for i, a_list in enumerate(aspect_lists):
+    train_labels = np.zeros((len(train_texts), len(ASPECTS)))
+    for i, a_list in enumerate(train_aspect_lists):
         for aspect in a_list:
             if aspect in aspect2id:
-                labels[i, aspect2id[aspect]] = 1
+                train_labels[i, aspect2id[aspect]] = 1
+                
+    # Process Val Split
+    val_grouped = val_df.groupby('id').agg({
+        'text': 'first',
+        'aspectCategory': lambda x: list(set(x))
+    }).reset_index()
 
-    train_texts, val_texts, train_labels, val_labels = train_test_split(
-        texts, labels, test_size=0.1, random_state=42
-    )
+    val_texts = val_grouped['text'].tolist()
+    val_aspect_lists = val_grouped['aspectCategory'].tolist()
+    
+    val_labels = np.zeros((len(val_texts), len(ASPECTS)))
+    for i, a_list in enumerate(val_aspect_lists):
+        for aspect in a_list:
+            if aspect in aspect2id:
+                val_labels[i, aspect2id[aspect]] = 1
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     
@@ -159,15 +175,16 @@ def main():
     # PART B: Train Sentiment Analysis Model
     # ---------------------------------------------------------
     print("\n=== Training Sentiment Analysis Model ===")
-    # Prepare data: (text, aspect) -> polarity
-    sent_train_texts = train_df['text'].tolist()
-    sent_train_aspects = train_df['aspectCategory'].tolist()
-    sent_train_labels = [polarity2id[p] for p in train_df['polarity'].tolist()]
-
-    # Split
-    s_train_texts, s_val_texts, s_train_aspects, s_val_aspects, s_train_y, s_val_y = train_test_split(
-        sent_train_texts, sent_train_aspects, sent_train_labels, test_size=0.1, random_state=42
-    )
+    
+    # Train Split
+    s_train_texts = train_df['text'].tolist()
+    s_train_aspects = train_df['aspectCategory'].tolist()
+    s_train_y = [polarity2id[p] for p in train_df['polarity'].tolist()]
+    
+    # Val Split
+    s_val_texts = val_df['text'].tolist()
+    s_val_aspects = val_df['aspectCategory'].tolist()
+    s_val_y = [polarity2id[p] for p in val_df['polarity'].tolist()]
 
     train_dataset_sent = SentimentDataset(s_train_texts, s_train_aspects, s_train_y, tokenizer)
     val_dataset_sent = SentimentDataset(s_val_texts, s_val_aspects, s_val_y, tokenizer)
@@ -268,33 +285,10 @@ def main():
     # PART D: Prediction on Validation Set (for logging)
     # ---------------------------------------------------------
     print("\n=== Predicting on Validation Set (for logging) ===")
-    # We used train_test_split on 'texts' earlier, but we need the original IDs to map back to Gold.
-    # The split was:
-    # train_texts, val_texts, train_labels, val_labels = train_test_split(texts, labels, ...)
-    # This split was on the UNIQUE texts from grouped dataframe.
-    # We need to reconstruct which IDs belong to val set.
     
-    # Re-run the split logic to get the indices/IDs
-    # grouped = train_df.groupby('id')...
-    # texts = grouped['text'].tolist()
-    # IDs = grouped['id'].tolist()
-    
-    grouped_ids = grouped['id'].tolist()
-    train_ids_split, val_ids_split, _, _ = train_test_split(
-        grouped_ids, labels, test_size=0.1, random_state=42
-    )
-
-    # Now we have the IDs in the validation set: val_ids_split
-    # We need to get the texts for these IDs
-    # We can filter the original dataframe or use the grouped texts
-    
-    val_id_set = set(val_ids_split)
-    
-    # Filter original df to get (id, text) pairs for these validation IDs
-    # Note: A single ID has one text, but multiple aspects.
-    val_rows_df = train_df[train_df['id'].isin(val_id_set)].groupby('id').first().reset_index()
-    val_eval_ids = val_rows_df['id'].tolist()
-    val_eval_texts = val_rows_df['text'].tolist()
+    # We already have val_grouped from Part A
+    val_eval_ids = val_grouped['id'].tolist()
+    val_eval_texts = val_grouped['text'].tolist()
 
     # 1. Predict Aspects on Val
     val_dataset_aspect = AspectDataset(val_eval_texts, None, tokenizer)
@@ -336,37 +330,19 @@ def main():
                 'polarity': polarity
             })
             
-        val_preds_file = os.path.join(SCRIPT_DIR, '..', 'val_preds_bert.csv')
-        pd.DataFrame(final_val_output).to_csv(val_preds_file, index=False)
-        print(f"Validation predictions saved to {val_preds_file}")
-        
-        # Evaluate
-        import sys
-        import subprocess
-        print("Running evaluation on DEV...")
-        eval_script = os.path.join(SCRIPT_DIR, "evaluate.py")
-        subprocess.call([
-            sys.executable,
-            eval_script,
-            TRAIN_FILE,
-            val_preds_file,
-            '--model', 'DistilBERT Baseline',
-            '--params', f'Ep={EPOCHS}, LR=2e-5',
-            '--split', 'dev'
-        ])
+        val_preds_file = 'val_preds_bert.csv'
+        print(f"Validation predictions will be saved to {val_preds_file}")
+        # Use utils for evaluation
+        save_and_evaluate(final_val_output, val_preds_file, 'DistilBERT', PARAMS, 'dev')
         
     # ---------------------------------------------------------
     # PART E: Prediction on Training Set (for logging)
     # ---------------------------------------------------------
     print("\n=== Predicting on Training Subset (for logging) ===")
     
-    # Reconstruct training IDs and texts
-    # train_ids_split contains the training IDs
-    train_id_set = set(train_ids_split)
-    
-    train_rows_df = train_df[train_df['id'].isin(train_id_set)].groupby('id').first().reset_index()
-    train_eval_ids = train_rows_df['id'].tolist()
-    train_eval_texts = train_rows_df['text'].tolist()
+    # We already have train_grouped from Part A
+    train_eval_ids = train_grouped['id'].tolist()
+    train_eval_texts = train_grouped['text'].tolist()
 
     # 1. Predict Aspects on Train
     train_dataset_aspect = AspectDataset(train_eval_texts, None, tokenizer)
@@ -408,27 +384,14 @@ def main():
                 'polarity': polarity
             })
             
-        train_preds_file = os.path.join(SCRIPT_DIR, '..', 'train_preds_bert.csv')
-        pd.DataFrame(final_train_output).to_csv(train_preds_file, index=False)
-        print(f"Training predictions saved to {train_preds_file}")
-        
-        # Evaluate
-        print("Running evaluation on TRAIN...")
-        subprocess.call([
-            sys.executable,
-            eval_script,
-            TRAIN_FILE,
-            train_preds_file,
-            '--model', 'DistilBERT Baseline',
-            '--params', f'Ep={EPOCHS}, LR=2e-5',
-            '--split', 'train'
-        ])
+        train_preds_file = 'train_preds_bert.csv'
+        print(f"Training predictions will be saved to {train_preds_file}")
+        # Use utils for evaluation
+        save_and_evaluate(final_train_output, train_preds_file, 'DistilBERT', PARAMS, 'train')
     
     # Save
-    submission_df = pd.DataFrame(final_output)
-    submission_df.to_csv(SUBMISSION_FILE, index=False)
-    print(f"Saved submission to {SUBMISSION_FILE}")
-    print(submission_df.head())
+    save_submission(final_output, 'submission_bert.csv')
+    print(f"Saved submission to submission_bert.csv")
 
 if __name__ == "__main__":
     main()

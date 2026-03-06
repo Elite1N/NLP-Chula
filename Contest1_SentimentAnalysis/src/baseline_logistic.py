@@ -18,7 +18,8 @@ from sklearn.metrics import classification_report, accuracy_score
 def train_baseline():
     # Setup Paths
     paths = get_paths()
-    TRAIN_FILE = paths['train_csv']
+    TRAIN_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'train_split.csv')
+    DEV_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'dev_split.csv')
     TEST_FILE = paths['test_csv']
     
     # Model Config
@@ -26,36 +27,41 @@ def train_baseline():
     PARAMS = "C=1.0, tfidf=5000"
 
     # Load Data
-    print(f"Loading data from {TRAIN_FILE}...")
-    if not os.path.exists(TRAIN_FILE):
-        print(f"Error: {TRAIN_FILE} not found.")
+    print(f"Loading data from splits...")
+    if not os.path.exists(TRAIN_SPLIT_FILE) or not os.path.exists(DEV_SPLIT_FILE):
+        print(f"Error: Splits not found. Run create_splits.py first.")
         return
 
-    train_df = pd.read_csv(TRAIN_FILE)
+    train_df = pd.read_csv(TRAIN_SPLIT_FILE)
+    val_df = pd.read_csv(DEV_SPLIT_FILE)
     test_df = pd.read_csv(TEST_FILE)
 
     # Prepare Aspect Data (Multi-label)
     # Group by ID/Text to get all aspects for a single review
-    grouped = train_df.groupby('id').agg({
+    grouped_train = train_df.groupby('id').agg({
         'text': 'first', 
-        'aspectCategory': list,
-        'polarity': list  # Note: Order matters, we assume aspectCategory and polarity lists correspond
+        'aspectCategory': list
     }).reset_index()
 
-    # X = text, Y = aspects
-    X = grouped['text']
-    y_aspects = grouped['aspectCategory']
+    X_train = grouped_train['text']
+    y_aspects_train = grouped_train['aspectCategory']
+    ids_train = grouped_train['id']
+
+    grouped_val = val_df.groupby('id').agg({
+        'text': 'first', 
+        'aspectCategory': list
+    }).reset_index()
+
+    X_val = grouped_val['text']
+    y_aspects_val = grouped_val['aspectCategory']
+    ids_val = grouped_val['id']
 
     # Binarize Aspects
     mlb = MultiLabelBinarizer()
-    y_aspects_bin = mlb.fit_transform(y_aspects)
+    y_train_aspect = mlb.fit_transform(y_aspects_train)
+    y_val_aspect = mlb.transform(y_aspects_val)
     classes = mlb.classes_
     print(f"Aspect Classes: {classes}")
-
-    # Split for Validation
-    X_train, X_val, y_train_aspect, y_val_aspect, ids_train, ids_val = train_test_split(
-        X, y_aspects_bin, grouped['id'], test_size=0.2, random_state=42
-    )
 
     # train Aspect Model
     print("Training Aspect Model...")
@@ -74,21 +80,19 @@ def train_baseline():
     sentiment_models = {}
     print("Training Sentiment Models...")
     
+    # We don't generally need unique polarities list for training logic below, but maybe later?
     unique_polarities = train_df['polarity'].unique()
     
     for aspect in classes:
-        # Get rows for this aspect
-        aspect_data = train_df[train_df['aspectCategory'] == aspect]
+        # Get rows for this aspect from TRAIN split
+        aspect_data_train = train_df[train_df['aspectCategory'] == aspect]
+        X_s_train = aspect_data_train['text']
+        y_s_train = aspect_data_train['polarity']
         
-        # Filter train set for this aspect
-        train_mask = aspect_data['id'].isin(ids_train)
-        X_s_train = aspect_data[train_mask]['text']
-        y_s_train = aspect_data[train_mask]['polarity']
-        
-        # Val set
-        val_mask = aspect_data['id'].isin(ids_val)
-        X_s_val = aspect_data[val_mask]['text']
-        y_s_val = aspect_data[val_mask]['polarity']
+        # Get rows for this aspect from VAL split
+        aspect_data_val = val_df[val_df['aspectCategory'] == aspect]
+        X_s_val = aspect_data_val['text']
+        y_s_val = aspect_data_val['polarity']
 
         if len(X_s_train) < 5:
             print(f"Skipping {aspect} (not enough data: {len(X_s_train)})")

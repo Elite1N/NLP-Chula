@@ -164,7 +164,10 @@ class EvaluateModel():
         sent_prec, sent_rec, sent_f1 = self.micro_PRF('sentiment')
         overall_prec, overall_rec, overall_f1 = self.micro_PRF('overall')
         
-        # Create result row
+        # Get per-class metrics
+        aspect_classes = ['food', 'price', 'service', 'ambience', 'anecdotes/miscellaneous']
+        sentiment_classes = ['positive', 'negative', 'neutral', 'conflict']
+        
         result = {
             'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'Model': model_name,
@@ -172,16 +175,37 @@ class EvaluateModel():
             'Split': split,
             'Aspect_F1': aspect_f1,
             'Sentiment_F1': sent_f1,
-            'Overall_F1': overall_f1,
-            'Evaluated_File': self.pred_file
+            'Overall_F1': overall_f1
         }
+
+        # Add per-class Aspect F1
+        for cls in aspect_classes:
+            _, _, f1, _ = self.macro_PRF('aspect', cls)
+            result[f'Asp_F1_{cls}'] = f1
+
+        # Add per-class Sentiment F1
+        for cls in sentiment_classes:
+            _, _, f1, _ = self.macro_PRF('sentiment', cls)
+            result[f'Sent_F1_{cls}'] = f1
+            
+        result['Evaluated_File'] = self.pred_file
         
         # Append to CSV
         df = pd.DataFrame([result])
         if not os.path.exists(csv_file):
             df.to_csv(csv_file, index=False)
         else:
-            df.to_csv(csv_file, mode='a', header=False, index=False)
+            # Check if columns match first
+            existing_df = pd.read_csv(csv_file)
+            if set(existing_df.columns) != set(df.columns):
+                print(f"Schema mismatch in log file {csv_file}. Creating new headers.")
+                # Basic union of columns logic is hard with CSV append mode.
+                # Easiest way: re-write file if small, or just append and hope pandas handles it (it doesn't without header=True).
+                # Safe approach: Read all, concat, save.
+                full_df = pd.concat([existing_df, df], ignore_index=True)
+                full_df.to_csv(csv_file, index=False)
+            else:
+                df.to_csv(csv_file, mode='a', header=False, index=False)
         
         print(f"Results logged to {csv_file}")
 
