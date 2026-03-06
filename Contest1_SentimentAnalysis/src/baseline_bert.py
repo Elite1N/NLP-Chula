@@ -4,7 +4,7 @@ import os
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
-from sklearn.model_selection import train_test_split
+#from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from transformers import DataCollatorWithPadding
 from utils import save_and_evaluate, save_submission, get_paths
@@ -12,13 +12,13 @@ from utils import save_and_evaluate, save_submission, get_paths
 # Configuration
 MODEL_NAME = "distilbert-base-uncased" # Faster than BERT, good for baseline
 BATCH_SIZE = 16 
-EPOCHS = 2
+EPOCHS = 1
 MAX_LEN = 128
 PARAMS = f"Ep={EPOCHS}, LR=2e-5"
 
 # Setup Paths
 paths = get_paths()
-TRAIN_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'train_split.csv')
+TRAIN_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'train_split_enriched.csv')
 DEV_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'dev_split.csv')
 TEST_FILE = paths['test_csv']
 # SUBMISSION_FILE removed, using utils instead
@@ -29,6 +29,40 @@ POLARITIES = ['conflict', 'negative', 'neutral', 'positive']
 
 aspect2id = {label: i for i, label in enumerate(ASPECTS)}
 id2aspect = {i: label for label, i in aspect2id.items()}
+
+# Heuristic Keywords
+HEURISTIC_KEYWORDS = {
+    'price': ['price', 'cost', 'expensive', 'cheap', 'bill', 'check', 'worth', 'value', 'overpriced', 'reasonable', '$', 'money', 'paid', 'pay', 'thb', 'baht'],
+    'service': ['service', 'waiter', 'waitress', 'staff', 'manager', 'server', 'served', 'rude', 'friendly', 'attitude', 'ignored', 'slow', 'fast', 'attentive', 'greeting'],
+    'ambience': ['ambience', 'atmosphere', 'decor', 'view', 'music', 'noisy', 'loud', 'quiet', 'crowded', 'clean', 'dirty', 'comfortable', 'seating', 'vibe', 'interior', 'design', 'decoration'],
+    'food': ['food', 'delicious', 'tasty', 'yummy', 'bland', 'flavor', 'meat', 'chicken', 'fish', 'pork', 'beef', 'salad', 'soup', 'dessert', 'drink', 'beverage', 'wine', 'beer', 'menu', 'dish', 'portion', 'fresh'],
+}
+
+def apply_heuristics(text, predicted_aspects):
+    text_lower = text.lower()
+    
+    # 1. Price Override
+    if 'price' not in predicted_aspects:
+        if any(k in text_lower for k in HEURISTIC_KEYWORDS['price']):
+             predicted_aspects.append('price')
+             
+    # 2. Service Override
+    if 'service' not in predicted_aspects:
+         if any(k in text_lower for k in HEURISTIC_KEYWORDS['service']):
+             predicted_aspects.append('service')
+             
+    # 3. Ambience Override
+    if 'ambience' not in predicted_aspects:
+         if any(k in text_lower for k in HEURISTIC_KEYWORDS['ambience']):
+             predicted_aspects.append('ambience')
+             
+    # 4. Food Override (conservative, only if empty?)
+    # Usually food is the default, but let's see. 
+    # If nothing predicted, maybe check for food keywords?
+    if not predicted_aspects and any(k in text_lower for k in HEURISTIC_KEYWORDS['food']):
+        predicted_aspects.append('food')
+
+    return list(set(predicted_aspects))
 
 polarity2id = {label: i for i, label in enumerate(POLARITIES)}
 id2polarity = {i: label for label, i in polarity2id.items()}
@@ -238,11 +272,15 @@ def main():
         pred_indices = np.where(aspect_probs[i] > 0.5)[0]
         pred_aspects = [id2aspect[idx] for idx in pred_indices]
         
+        # Heuristics
+        pred_aspects = apply_heuristics(text, pred_aspects)
+        
         # Fallback if no aspect predicted
         if not pred_aspects:
             # Use max probability class
             max_idx = np.argmax(aspect_probs[i])
             pred_aspects = [id2aspect[max_idx]]
+            pred_aspects = apply_heuristics(text, pred_aspects)
         
         # 2. Predict Sentiment for each aspect
         # Prepare batch for sentiment
@@ -301,9 +339,13 @@ def main():
         pred_indices = np.where(val_aspect_probs[i] > 0.5)[0]
         pred_aspects = [id2aspect[idx] for idx in pred_indices]
         
+        # Heuristics
+        pred_aspects = apply_heuristics(text, pred_aspects)
+        
         if not pred_aspects:
             max_idx = np.argmax(val_aspect_probs[i])
             pred_aspects = [id2aspect[max_idx]]
+            pred_aspects = apply_heuristics(text, pred_aspects)
             
         for aspect in pred_aspects:
             val_results_rows.append({
@@ -355,9 +397,13 @@ def main():
         pred_indices = np.where(train_aspect_probs[i] > 0.5)[0] # Threshold
         pred_aspects = [id2aspect[idx] for idx in pred_indices]
         
+        # Heuristics
+        pred_aspects = apply_heuristics(text, pred_aspects)
+        
         if not pred_aspects:
             max_idx = np.argmax(train_aspect_probs[i])
             pred_aspects = [id2aspect[max_idx]]
+            pred_aspects = apply_heuristics(text, pred_aspects)
             
         for aspect in pred_aspects:
             train_results_rows.append({
