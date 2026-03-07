@@ -1,0 +1,162 @@
+=== ERROR ANALYSIS FOR RoBERTa ===
+
+--- Top 10 False Positives (Hallucinated Aspects) ---
+ID: 14
+Text: The whole set up is truly unprofessional and I wish Cafe Noir would get some good staff, because despite the current one this is a great place.
+Pred Aspect: ambience (Not present in GT)
+
+ID: 110
+Text: If anyones has doubt of not knowing enough about wines,please check their wine list.
+Pred Aspect: price (Not present in GT)
+
+ID: 284
+Text: Been going here since it opened have seen the quality value decrease considerably.
+Pred Aspect: food (Not present in GT)
+
+ID: 284
+Text: Been going here since it opened have seen the quality value decrease considerably.
+Pred Aspect: price (Not present in GT)
+
+ID: 297
+Text: And at the conclusion of this culinary nightmare the check was given to our table by knocking over a glass of water.
+Pred Aspect: price (Not present in GT)
+
+ID: 316
+Text: There was a great deal for 6 Blue Point oysters and a beer or glass of wine for $8!
+Pred Aspect: food (Not present in GT)
+
+ID: 344
+Text: Don't be fooled by crowds of people.
+Pred Aspect: ambience (Not present in GT)
+
+ID: 400
+Text: If you're in town, it's worth searching for another place.
+Pred Aspect: price (Not present in GT)
+
+ID: 484
+Text: It can be a little confusing as to where one goes to order, but once the food is ordered, you are in for a treat.
+Pred Aspect: service (Not present in GT)
+
+ID: 591
+Text: If you wrote a bad review, it's because you don't understand what Rao's is all about.
+Pred Aspect: ambience (Not present in GT)
+
+
+--- Top 10 False Negatives (Missed Aspects) ---
+ID: 3
+Text: The staff isn't the friendliest or most competent, and I am stickler for service, but everything else about this place makes up for it.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 61
+Text: This is the perfect spot for meeting friends, having lunch, dinner, pre-theatre or after-theatre drinks!
+GT Aspect: ambience (Model missed this)
+
+ID: 247
+Text: Lived in Shanghai most of my life and thought the food was comparable to the flagship Green Bo restaurant there.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 250
+Text: I understand the area and folks you need not come here for the romantic, alluring ambiance or the five star service featuring a sommlier and a complicated maze of captain and back waiters - you come for the authentic foods, the tastes, the experiance.
+GT Aspect: food (Model missed this)
+
+ID: 284
+Text: Been going here since it opened have seen the quality value decrease considerably.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 297
+Text: And at the conclusion of this culinary nightmare the check was given to our table by knocking over a glass of water.
+GT Aspect: food (Model missed this)
+
+ID: 344
+Text: Don't be fooled by crowds of people.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 484
+Text: It can be a little confusing as to where one goes to order, but once the food is ordered, you are in for a treat.
+GT Aspect: food (Model missed this)
+
+ID: 610
+Text: We had a great tiem watching the shows and characters and ar food was just what we were looking for.
+GT Aspect: ambience (Model missed this)
+
+ID: 630
+Text: I highly recommend visiting this restaurant and having dinner and drinks!
+GT Aspect: food (Model missed this)
+
+
+--- Top 10 Polarity Errors ---
+ID: 3
+Text: The staff isn't the friendliest or most competent, and I am stickler for service, but everything else about this place makes up for it.
+Aspect: service
+GT: negative vs Pred: conflict
+
+ID: 110
+Text: If anyones has doubt of not knowing enough about wines,please check their wine list.
+Aspect: food
+GT: positive vs Pred: conflict
+
+ID: 185
+Text: Also, specify if you like your food spicy- its rather bland if you don't.
+Aspect: food
+GT: neutral vs Pred: conflict
+
+ID: 195
+Text: If the weather is nice, try to snag an outside table.
+Aspect: ambience
+GT: neutral vs Pred: positive
+
+ID: 198
+Text: Odd for Ave B, not just odd, The place attracts an eclectic crowd to say the least.
+Aspect: ambience
+GT: neutral vs Pred: positive
+
+ID: 225
+Text: Somewhat pricey but what the heck.
+Aspect: price
+GT: negative vs Pred: conflict
+
+ID: 323
+Text: The menu looked good, except for offering the Chilean Sea Bass, but the server does not offer up the specials that were written on the board outside.
+Aspect: service
+GT: negative vs Pred: conflict
+
+ID: 400
+Text: If you're in town, it's worth searching for another place.
+Aspect: anecdotes/miscellaneous
+GT: negative vs Pred: positive
+
+ID: 583
+Text: For those that go once and don't enjoy it, all I can say is that they just don't get it.
+Aspect: anecdotes/miscellaneous
+GT: positive vs Pred: negative
+
+ID: 591
+Text: If you wrote a bad review, it's because you don't understand what Rao's is all about.
+Aspect: anecdotes/miscellaneous
+GT: positive vs Pred: negative
+
+ID: 657
+Text: Always popular, always full, always a wait.
+Aspect: ambience
+GT: conflict vs Pred: positive
+
+ID: 682
+Text: One less manhattanite the better.
+Aspect: anecdotes/miscellaneous
+GT: neutral vs Pred: positive
+
+ID: 808
+Text: i would go again if i didn't have to pay.
+Aspect: price
+GT: negative vs Pred: positive
+
+ID: 825
+Text: Pricey, but worth a try, at least once.
+Aspect: price
+GT: negative vs Pred: conflict
+
+ID: 835
+Text: The food was very expensive (we spent $160 for lunch for two) but extremely tasty.
+Aspect: food
+GT: positive vs Pred: negative
+

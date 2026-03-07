@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from transformers import DataCollatorWithPadding
-from utils import save_and_evaluate, save_submission, get_paths
+from utils import save_and_evaluate, save_submission, get_paths, apply_heuristics
 
 # Configuration
 MODEL_NAME = "roberta-base" 
@@ -28,28 +28,7 @@ POLARITIES = ['conflict', 'negative', 'neutral', 'positive']
 aspect2id = {label: i for i, label in enumerate(ASPECTS)}
 id2aspect = {i: label for label, i in aspect2id.items()}
 
-# Heuristic Keywords
-HEURISTIC_KEYWORDS = {
-    'price': ['price', 'cost', 'expensive', 'cheap', 'bill', 'check', 'worth', 'value', 'overpriced', 'reasonable', '$', 'money', 'paid', 'pay', 'thb', 'baht'],
-    'service': ['service', 'waiter', 'waitress', 'staff', 'manager', 'server', 'served', 'rude', 'friendly', 'attitude', 'ignored', 'slow', 'fast', 'attentive', 'greeting'],
-    'ambience': ['ambience', 'atmosphere', 'decor', 'view', 'music', 'noisy', 'loud', 'quiet', 'crowded', 'clean', 'dirty', 'comfortable', 'seating', 'vibe', 'interior', 'design', 'decoration'],
-    'food': ['food', 'delicious', 'tasty', 'yummy', 'bland', 'flavor', 'meat', 'chicken', 'fish', 'pork', 'beef', 'salad', 'soup', 'dessert', 'drink', 'beverage', 'wine', 'beer', 'menu', 'dish', 'portion', 'fresh'],
-}
-
-def apply_heuristics(text, predicted_aspects):
-    text_lower = text.lower()
-    if 'price' not in predicted_aspects:
-        if any(k in text_lower for k in HEURISTIC_KEYWORDS['price']):
-             predicted_aspects.append('price')
-    if 'service' not in predicted_aspects:
-         if any(k in text_lower for k in HEURISTIC_KEYWORDS['service']):
-             predicted_aspects.append('service')
-    if 'ambience' not in predicted_aspects:
-         if any(k in text_lower for k in HEURISTIC_KEYWORDS['ambience']):
-             predicted_aspects.append('ambience')
-    if not predicted_aspects and any(k in text_lower for k in HEURISTIC_KEYWORDS['food']):
-        predicted_aspects.append('food')
-    return list(set(predicted_aspects))
+# Heuristic Keywords logic moved to utils.py
 
 polarity2id = {label: i for i, label in enumerate(POLARITIES)}
 id2polarity = {i: label for label, i in polarity2id.items()}
@@ -160,7 +139,7 @@ def main():
     )
 
     training_args_aspect = TrainingArguments(
-        output_dir='./results_aspect_roberta',
+        output_dir='./checkpoints/results_aspect_roberta',
         num_train_epochs=EPOCHS,
         per_device_train_batch_size=BATCH_SIZE,
         per_device_eval_batch_size=BATCH_SIZE,
@@ -168,7 +147,7 @@ def main():
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1_micro",
-        logging_dir='./logs_aspect_roberta',
+        logging_dir='./checkpoints/logs_aspect_roberta',
         logging_steps=50,
         learning_rate=2e-5,
         save_total_limit=1,
@@ -206,7 +185,7 @@ def main():
     )
 
     training_args_sent = TrainingArguments(
-        output_dir='./results_sentiment_roberta',
+        output_dir='./checkpoints/results_sentiment_roberta',
         num_train_epochs=EPOCHS,
         per_device_train_batch_size=BATCH_SIZE,
         per_device_eval_batch_size=BATCH_SIZE,
@@ -214,7 +193,7 @@ def main():
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="accuracy",
-        logging_dir='./logs_sentiment_roberta',
+        logging_dir='./checkpoints/logs_sentiment_roberta',
         logging_steps=50,
         learning_rate=2e-5,
         save_total_limit=1,

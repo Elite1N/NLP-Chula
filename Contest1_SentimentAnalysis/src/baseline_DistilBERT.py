@@ -7,7 +7,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trai
 #from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from transformers import DataCollatorWithPadding
-from utils import save_and_evaluate, save_submission, get_paths
+from utils import save_and_evaluate, save_submission, get_paths, apply_heuristics
 
 # Configuration
 MODEL_NAME = "distilbert-base-uncased" # Faster than BERT, good for baseline
@@ -30,39 +30,7 @@ POLARITIES = ['conflict', 'negative', 'neutral', 'positive']
 aspect2id = {label: i for i, label in enumerate(ASPECTS)}
 id2aspect = {i: label for label, i in aspect2id.items()}
 
-# Heuristic Keywords
-HEURISTIC_KEYWORDS = {
-    'price': ['price', 'cost', 'expensive', 'cheap', 'bill', 'check', 'worth', 'value', 'overpriced', 'reasonable', '$', 'money', 'paid', 'pay', 'thb', 'baht'],
-    'service': ['service', 'waiter', 'waitress', 'staff', 'manager', 'server', 'served', 'rude', 'friendly', 'attitude', 'ignored', 'slow', 'fast', 'attentive', 'greeting'],
-    'ambience': ['ambience', 'atmosphere', 'decor', 'view', 'music', 'noisy', 'loud', 'quiet', 'crowded', 'clean', 'dirty', 'comfortable', 'seating', 'vibe', 'interior', 'design', 'decoration'],
-    'food': ['food', 'delicious', 'tasty', 'yummy', 'bland', 'flavor', 'meat', 'chicken', 'fish', 'pork', 'beef', 'salad', 'soup', 'dessert', 'drink', 'beverage', 'wine', 'beer', 'menu', 'dish', 'portion', 'fresh'],
-}
-
-def apply_heuristics(text, predicted_aspects):
-    text_lower = text.lower()
-    
-    # 1. Price Override
-    if 'price' not in predicted_aspects:
-        if any(k in text_lower for k in HEURISTIC_KEYWORDS['price']):
-             predicted_aspects.append('price')
-             
-    # 2. Service Override
-    if 'service' not in predicted_aspects:
-         if any(k in text_lower for k in HEURISTIC_KEYWORDS['service']):
-             predicted_aspects.append('service')
-             
-    # 3. Ambience Override
-    if 'ambience' not in predicted_aspects:
-         if any(k in text_lower for k in HEURISTIC_KEYWORDS['ambience']):
-             predicted_aspects.append('ambience')
-             
-    # 4. Food Override (conservative, only if empty?)
-    # Usually food is the default, but let's see. 
-    # If nothing predicted, maybe check for food keywords?
-    if not predicted_aspects and any(k in text_lower for k in HEURISTIC_KEYWORDS['food']):
-        predicted_aspects.append('food')
-
-    return list(set(predicted_aspects))
+# Heuristic Keywords logic moved to utils.py
 
 polarity2id = {label: i for i, label in enumerate(POLARITIES)}
 id2polarity = {i: label for label, i in polarity2id.items()}

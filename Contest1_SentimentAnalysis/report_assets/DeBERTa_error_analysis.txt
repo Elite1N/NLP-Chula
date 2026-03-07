@@ -1,0 +1,162 @@
+=== ERROR ANALYSIS FOR DeBERTa ===
+
+--- Top 10 False Positives (Hallucinated Aspects) ---
+ID: 14
+Text: The whole set up is truly unprofessional and I wish Cafe Noir would get some good staff, because despite the current one this is a great place.
+Pred Aspect: ambience (Not present in GT)
+
+ID: 95
+Text: this is can became on e of the NY Italian Food fare institutions.
+Pred Aspect: food (Not present in GT)
+
+ID: 110
+Text: If anyones has doubt of not knowing enough about wines,please check their wine list.
+Pred Aspect: price (Not present in GT)
+
+ID: 228
+Text: We had champagne and caviar and felt like princesses!
+Pred Aspect: ambience (Not present in GT)
+
+ID: 284
+Text: Been going here since it opened have seen the quality value decrease considerably.
+Pred Aspect: food (Not present in GT)
+
+ID: 284
+Text: Been going here since it opened have seen the quality value decrease considerably.
+Pred Aspect: price (Not present in GT)
+
+ID: 297
+Text: And at the conclusion of this culinary nightmare the check was given to our table by knocking over a glass of water.
+Pred Aspect: price (Not present in GT)
+
+ID: 344
+Text: Don't be fooled by crowds of people.
+Pred Aspect: ambience (Not present in GT)
+
+ID: 400
+Text: If you're in town, it's worth searching for another place.
+Pred Aspect: price (Not present in GT)
+
+ID: 401
+Text: The service, however, was a bright flower in a garden.
+Pred Aspect: ambience (Not present in GT)
+
+
+--- Top 10 False Negatives (Missed Aspects) ---
+ID: 3
+Text: The staff isn't the friendliest or most competent, and I am stickler for service, but everything else about this place makes up for it.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 61
+Text: This is the perfect spot for meeting friends, having lunch, dinner, pre-theatre or after-theatre drinks!
+GT Aspect: ambience (Model missed this)
+
+ID: 95
+Text: this is can became on e of the NY Italian Food fare institutions.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 247
+Text: Lived in Shanghai most of my life and thought the food was comparable to the flagship Green Bo restaurant there.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 284
+Text: Been going here since it opened have seen the quality value decrease considerably.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 297
+Text: And at the conclusion of this culinary nightmare the check was given to our table by knocking over a glass of water.
+GT Aspect: food (Model missed this)
+
+ID: 344
+Text: Don't be fooled by crowds of people.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 470
+Text: and we were thouroughly disapointed.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 624
+Text: You will not be disapointed at all.
+GT Aspect: anecdotes/miscellaneous (Model missed this)
+
+ID: 630
+Text: I highly recommend visiting this restaurant and having dinner and drinks!
+GT Aspect: food (Model missed this)
+
+
+--- Top 10 Polarity Errors ---
+ID: 3
+Text: The staff isn't the friendliest or most competent, and I am stickler for service, but everything else about this place makes up for it.
+Aspect: service
+GT: negative vs Pred: conflict
+
+ID: 28
+Text: Food was average but tasty.
+Aspect: food
+GT: positive vs Pred: conflict
+
+ID: 110
+Text: If anyones has doubt of not knowing enough about wines,please check their wine list.
+Aspect: food
+GT: positive vs Pred: negative
+
+ID: 185
+Text: Also, specify if you like your food spicy- its rather bland if you don't.
+Aspect: food
+GT: neutral vs Pred: negative
+
+ID: 195
+Text: If the weather is nice, try to snag an outside table.
+Aspect: ambience
+GT: neutral vs Pred: positive
+
+ID: 198
+Text: Odd for Ave B, not just odd, The place attracts an eclectic crowd to say the least.
+Aspect: ambience
+GT: neutral vs Pred: negative
+
+ID: 225
+Text: Somewhat pricey but what the heck.
+Aspect: price
+GT: negative vs Pred: conflict
+
+ID: 250
+Text: I understand the area and folks you need not come here for the romantic, alluring ambiance or the five star service featuring a sommlier and a complicated maze of captain and back waiters - you come for the authentic foods, the tastes, the experiance.
+Aspect: service
+GT: positive vs Pred: conflict
+
+ID: 314
+Text: All I can say is $2 pints during happy hour and the some of the cheapest oysters you'll find in the city, though the quality is some of the best.
+Aspect: price
+GT: positive vs Pred: negative
+
+ID: 342
+Text: The fish was adequate, but inexpertly sliced.
+Aspect: food
+GT: conflict vs Pred: positive
+
+ID: 400
+Text: If you're in town, it's worth searching for another place.
+Aspect: anecdotes/miscellaneous
+GT: negative vs Pred: neutral
+
+ID: 458
+Text: Nice Family owned traditional restaurant.
+Aspect: anecdotes/miscellaneous
+GT: positive vs Pred: neutral
+
+ID: 583
+Text: For those that go once and don't enjoy it, all I can say is that they just don't get it.
+Aspect: anecdotes/miscellaneous
+GT: positive vs Pred: negative
+
+ID: 591
+Text: If you wrote a bad review, it's because you don't understand what Rao's is all about.
+Aspect: anecdotes/miscellaneous
+GT: positive vs Pred: negative
+
+ID: 657
+Text: Always popular, always full, always a wait.
+Aspect: ambience
+GT: conflict vs Pred: positive
+
