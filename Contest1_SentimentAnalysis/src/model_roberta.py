@@ -4,13 +4,12 @@ import os
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
-#from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from transformers import DataCollatorWithPadding
 from utils import save_and_evaluate, save_submission, get_paths
 
 # Configuration
-MODEL_NAME = "distilbert-base-uncased" # Faster than BERT, good for baseline
+MODEL_NAME = "roberta-base" 
 BATCH_SIZE = 16 
 EPOCHS = 3
 MAX_LEN = 128
@@ -21,7 +20,6 @@ paths = get_paths()
 TRAIN_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'train_split_enriched.csv')
 DEV_SPLIT_FILE = os.path.join(paths['project_root'], 'data', 'dev_split.csv')
 TEST_FILE = paths['test_csv']
-# SUBMISSION_FILE removed, using utils instead
 
 # Labels
 ASPECTS = ['ambience', 'anecdotes/miscellaneous', 'food', 'price', 'service']
@@ -40,28 +38,17 @@ HEURISTIC_KEYWORDS = {
 
 def apply_heuristics(text, predicted_aspects):
     text_lower = text.lower()
-    
-    # 1. Price Override
     if 'price' not in predicted_aspects:
         if any(k in text_lower for k in HEURISTIC_KEYWORDS['price']):
              predicted_aspects.append('price')
-             
-    # 2. Service Override
     if 'service' not in predicted_aspects:
          if any(k in text_lower for k in HEURISTIC_KEYWORDS['service']):
              predicted_aspects.append('service')
-             
-    # 3. Ambience Override
     if 'ambience' not in predicted_aspects:
          if any(k in text_lower for k in HEURISTIC_KEYWORDS['ambience']):
              predicted_aspects.append('ambience')
-             
-    # 4. Food Override (conservative, only if empty?)
-    # Usually food is the default, but let's see. 
-    # If nothing predicted, maybe check for food keywords?
     if not predicted_aspects and any(k in text_lower for k in HEURISTIC_KEYWORDS['food']):
         predicted_aspects.append('food')
-
     return list(set(predicted_aspects))
 
 polarity2id = {label: i for i, label in enumerate(POLARITIES)}
@@ -99,10 +86,10 @@ class SentimentDataset(Dataset):
     def __getitem__(self, idx):
         text = str(self.texts[idx])
         aspect = str(self.aspects[idx])
-        # Format: [CLS] Aspect [SEP] Text [SEP]
-        input_text = f"{aspect} [SEP] {text}" 
         
-        encoding = self.tokenizer(input_text, truncation=True, padding="max_length", max_length=self.max_len)
+        # CORRECTED usage for RoBERTa/DeBERTa: Pass as pair
+        encoding = self.tokenizer(aspect, text, truncation=True, padding="max_length", max_length=self.max_len)
+        
         item = {key: torch.tensor(val) for key, val in encoding.items()}
         if self.labels is not None:
             item['labels'] = torch.tensor(self.labels[idx], dtype=torch.long)
@@ -112,7 +99,6 @@ def compute_metrics_aspect(eval_pred):
     logits, labels = eval_pred
     probs = torch.sigmoid(torch.tensor(logits)).numpy()
     preds = (probs > 0.5).astype(int)
-    # Micro F1 appropriate for multi-label Imbalance
     f1 = f1_score(labels, preds, average='micro')
     return {'f1_micro': f1}
 
@@ -125,7 +111,6 @@ def compute_metrics_sentiment(eval_pred):
 def main():
     print(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}")
     
-    # 1. Load Data
     if not os.path.exists(TRAIN_SPLIT_FILE) or not os.path.exists(DEV_SPLIT_FILE):
         print(f"Error: Splits not found. Please run create_splits.py first.")
         return
@@ -133,12 +118,8 @@ def main():
     val_df = pd.read_csv(DEV_SPLIT_FILE)
     test_df = pd.read_csv(TEST_FILE)
 
-    # ---------------------------------------------------------
-    # PART A: Train Aspect Detection Model
-    # ---------------------------------------------------------
     print("\n=== Training Aspect Detection Model ===")
     
-    # Process Train Split
     train_grouped = train_df.groupby('id').agg({
         'text': 'first',
         'aspectCategory': lambda x: list(set(x))
@@ -153,7 +134,6 @@ def main():
             if aspect in aspect2id:
                 train_labels[i, aspect2id[aspect]] = 1
                 
-    # Process Val Split
     val_grouped = val_df.groupby('id').agg({
         'text': 'first',
         'aspectCategory': lambda x: list(set(x))
@@ -180,7 +160,7 @@ def main():
     )
 
     training_args_aspect = TrainingArguments(
-        output_dir='./results_aspect',
+        output_dir='./results_aspect_roberta',
         num_train_epochs=EPOCHS,
         per_device_train_batch_size=BATCH_SIZE,
         per_device_eval_batch_size=BATCH_SIZE,
@@ -188,10 +168,13 @@ def main():
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1_micro",
-        logging_dir='./logs_aspect',
+        logging_dir='./logs_aspect_roberta',
         logging_steps=50,
         learning_rate=2e-5,
-        save_total_limit=1
+        save_total_limit=1,
+        weight_decay=0.01,
+        warmup_ratio=0.1,
+        fp16=True
     )
 
     trainer_aspect = Trainer(
@@ -204,17 +187,12 @@ def main():
 
     trainer_aspect.train()
     
-    # ---------------------------------------------------------
-    # PART B: Train Sentiment Analysis Model
-    # ---------------------------------------------------------
     print("\n=== Training Sentiment Analysis Model ===")
     
-    # Train Split
     s_train_texts = train_df['text'].tolist()
     s_train_aspects = train_df['aspectCategory'].tolist()
     s_train_y = [polarity2id[p] for p in train_df['polarity'].tolist()]
     
-    # Val Split
     s_val_texts = val_df['text'].tolist()
     s_val_aspects = val_df['aspectCategory'].tolist()
     s_val_y = [polarity2id[p] for p in val_df['polarity'].tolist()]
@@ -228,7 +206,7 @@ def main():
     )
 
     training_args_sent = TrainingArguments(
-        output_dir='./results_sentiment',
+        output_dir='./results_sentiment_roberta',
         num_train_epochs=EPOCHS,
         per_device_train_batch_size=BATCH_SIZE,
         per_device_eval_batch_size=BATCH_SIZE,
@@ -236,10 +214,13 @@ def main():
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="accuracy",
-        logging_dir='./logs_sentiment',
+        logging_dir='./logs_sentiment_roberta',
         logging_steps=50,
         learning_rate=2e-5,
-        save_total_limit=1
+        save_total_limit=1,
+        weight_decay=0.01,
+        warmup_ratio=0.1,
+        fp16=True
     )
 
     trainer_sent = Trainer(
@@ -252,14 +233,10 @@ def main():
 
     trainer_sent.train()
 
-    # ---------------------------------------------------------
-    # PART C: Inference on Test Set
-    # ---------------------------------------------------------
     print("\n=== Predicting on Test Set ===")
     test_texts = test_df['text'].tolist()
     test_ids = test_df['id'].tolist()
     
-    # 1. Predict Aspects
     test_dataset_aspect = AspectDataset(test_texts, None, tokenizer)
     aspect_preds_logits = trainer_aspect.predict(test_dataset_aspect).predictions
     aspect_probs = torch.sigmoid(torch.tensor(aspect_preds_logits)).numpy()
@@ -267,32 +244,15 @@ def main():
     results = []
     
     for i, (text_id, text) in enumerate(zip(test_ids, test_texts)):
-        # Thresholding
         pred_indices = np.where(aspect_probs[i] > 0.5)[0]
         pred_aspects = [id2aspect[idx] for idx in pred_indices]
-        
-        # Heuristics
         pred_aspects = apply_heuristics(text, pred_aspects)
         
-        # Fallback if no aspect predicted
         if not pred_aspects:
-            # Use max probability class
             max_idx = np.argmax(aspect_probs[i])
             pred_aspects = [id2aspect[max_idx]]
             pred_aspects = apply_heuristics(text, pred_aspects)
         
-        # 2. Predict Sentiment for each aspect
-        # Prepare batch for sentiment
-        # Input: [CLS] Aspect [SEP] Text
-        batch_texts = [text] * len(pred_aspects)
-        batch_aspects = pred_aspects
-        
-        # To batch predict, we can create a small dataset or just one-by-one (slow but fine for few)
-        # Faster: Process all needed (text, aspect) pairs at once? 
-        # For simplicity, let's just do individual inference or mini-batches per review
-        # Or construct a flat list of all queries then map back.
-        
-        # Let's do simple flat list construction for faster inference
         for aspect in pred_aspects:
             results.append({
                 'id': text_id,
@@ -301,7 +261,6 @@ def main():
                 'orig_index': i
             })
 
-    # Prepare sentiment inference dataset
     inf_texts = [r['text'] for r in results]
     inf_aspects = [r['aspect'] for r in results]
     
@@ -318,16 +277,11 @@ def main():
             'polarity': polarity
         })
     
-    # ---------------------------------------------------------
-    # PART D: Prediction on Validation Set (for logging)
-    # ---------------------------------------------------------
     print("\n=== Predicting on Validation Set (for logging) ===")
     
-    # We already have val_grouped from Part A
     val_eval_ids = val_grouped['id'].tolist()
     val_eval_texts = val_grouped['text'].tolist()
 
-    # 1. Predict Aspects on Val
     val_dataset_aspect = AspectDataset(val_eval_texts, None, tokenizer)
     val_aspect_logits = trainer_aspect.predict(val_dataset_aspect).predictions
     val_aspect_probs = torch.sigmoid(torch.tensor(val_aspect_logits)).numpy()
@@ -337,8 +291,6 @@ def main():
     for i, (text_id, text) in enumerate(zip(val_eval_ids, val_eval_texts)):
         pred_indices = np.where(val_aspect_probs[i] > 0.5)[0]
         pred_aspects = [id2aspect[idx] for idx in pred_indices]
-        
-        # Heuristics
         pred_aspects = apply_heuristics(text, pred_aspects)
         
         if not pred_aspects:
@@ -353,7 +305,6 @@ def main():
                 'aspect': aspect
             })
             
-    # 2. Predict Sentiment on Val
     if val_results_rows:
         val_inf_texts = [r['text'] for r in val_results_rows]
         val_inf_aspects = [r['aspect'] for r in val_results_rows]
@@ -371,21 +322,15 @@ def main():
                 'polarity': polarity
             })
             
-        val_preds_file = 'val_preds_bert.csv'
+        val_preds_file = 'val_preds_roberta.csv'
         print(f"Validation predictions will be saved to {val_preds_file}")
-        # Use utils for evaluation
-        save_and_evaluate(final_val_output, val_preds_file, 'DistilBERT', PARAMS, 'dev')
+        save_and_evaluate(final_val_output, val_preds_file, 'RoBERTa', PARAMS, 'dev')
         
-    # ---------------------------------------------------------
-    # PART E: Prediction on Training Set (for logging)
-    # ---------------------------------------------------------
     print("\n=== Predicting on Training Subset (for logging) ===")
     
-    # We already have train_grouped from Part A
     train_eval_ids = train_grouped['id'].tolist()
     train_eval_texts = train_grouped['text'].tolist()
 
-    # 1. Predict Aspects on Train
     train_dataset_aspect = AspectDataset(train_eval_texts, None, tokenizer)
     train_aspect_logits = trainer_aspect.predict(train_dataset_aspect).predictions
     train_aspect_probs = torch.sigmoid(torch.tensor(train_aspect_logits)).numpy()
@@ -393,10 +338,8 @@ def main():
     train_results_rows = []
     
     for i, (text_id, text) in enumerate(zip(train_eval_ids, train_eval_texts)):
-        pred_indices = np.where(train_aspect_probs[i] > 0.5)[0] # Threshold
+        pred_indices = np.where(train_aspect_probs[i] > 0.5)[0]
         pred_aspects = [id2aspect[idx] for idx in pred_indices]
-        
-        # Heuristics
         pred_aspects = apply_heuristics(text, pred_aspects)
         
         if not pred_aspects:
@@ -411,7 +354,6 @@ def main():
                 'aspect': aspect
             })
             
-    # 2. Predict Sentiment on Train
     if train_results_rows:
         train_inf_texts = [r['text'] for r in train_results_rows]
         train_inf_aspects = [r['aspect'] for r in train_results_rows]
@@ -429,14 +371,12 @@ def main():
                 'polarity': polarity
             })
             
-        train_preds_file = 'train_preds_bert.csv'
+        train_preds_file = 'train_preds_roberta.csv'
         print(f"Training predictions will be saved to {train_preds_file}")
-        # Use utils for evaluation
-        save_and_evaluate(final_train_output, train_preds_file, 'DistilBERT', PARAMS, 'train')
+        save_and_evaluate(final_train_output, train_preds_file, 'RoBERTa', PARAMS, 'train')
     
-    # Save
-    save_submission(final_output, 'submission_bert.csv')
-    print(f"Saved submission to submission_bert.csv")
+    save_submission(final_output, 'submission_roberta.csv')
+    print(f"Saved submission to submission_roberta.csv")
 
 if __name__ == "__main__":
     main()
