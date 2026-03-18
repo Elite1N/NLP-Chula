@@ -350,6 +350,9 @@ def main():
                 'polarity': polarity
             })
             
+        # Filter out augmented samples for clean evaluation
+        final_train_output = [r for r in final_train_output if "_aug" not in str(r['id'])]
+            
         train_preds_file = 'train_preds_roberta.csv'
         print(f"Training predictions will be saved to {train_preds_file}")
         save_and_evaluate(final_train_output, train_preds_file, 'RoBERTa', PARAMS, 'train')

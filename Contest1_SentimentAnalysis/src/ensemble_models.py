@@ -12,13 +12,13 @@ EXPERIMENTS_DIR = os.path.join(PATHS['project_root'], 'experiments', 'v2')
 
 # Define paths to model outputs (Validation set for tuning, Submission set for final)
 VAL_FILES = {
-    'deberta': os.path.join(EXPERIMENTS_DIR, 'DeBERTa', 'val_preds_deberta.csv'),
+    'deberta': os.path.join(PATHS['outputs_dir'], 'val_preds_deberta.csv'), # Updated to point to fresh output
     'roberta': os.path.join(EXPERIMENTS_DIR, 'roberta', 'val_preds_roberta.csv'),
     'distilbert': os.path.join(EXPERIMENTS_DIR, 'distilbert', 'val_preds_bert.csv')
 }
 
 SUB_FILES = {
-    'deberta': os.path.join(EXPERIMENTS_DIR, 'DeBERTa', 'submission_deberta.csv'),
+    'deberta': os.path.join(PATHS['outputs_dir'], 'submission_deberta.csv'), # Updated to point to fresh output
     'roberta': os.path.join(EXPERIMENTS_DIR, 'roberta', 'submission_roberta.csv'),
     'distilbert': os.path.join(EXPERIMENTS_DIR, 'distilbert', 'submission_bert.csv')
 }

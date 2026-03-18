@@ -3,17 +3,17 @@ import numpy as np
 import os
 import torch
 from torch.utils.data import Dataset
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer, EarlyStoppingCallback
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from transformers import DataCollatorWithPadding
 from utils import save_and_evaluate, save_submission, get_paths, apply_heuristics
 
 # Configuration
-MODEL_NAME = "microsoft/deberta-base" 
+MODEL_NAME = "microsoft/deberta-base" # Keeping DeBERTa-base as requested (not v3 logic here unless explicitly upgraded)
 BATCH_SIZE = 8
-EPOCHS = 3
+EPOCHS = 10 # Increased for Early Stopping
 MAX_LEN = 128
-PARAMS = f"Ep={EPOCHS}, LR=2e-5, BF16"
+PARAMS = f"Ep={EPOCHS}, LR=2e-5, BF16, EarlyStop, Threshtune"
 
 # Setup Paths
 paths = get_paths()
@@ -163,10 +163,32 @@ def main():
         args=training_args_aspect,
         train_dataset=train_dataset_aspect,
         eval_dataset=val_dataset_aspect,
-        compute_metrics=compute_metrics_aspect
+        compute_metrics=compute_metrics_aspect,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=2)] # Stop if no improvement for 2 epochs
     )
 
     trainer_aspect.train()
+    
+    print("\n=== Tuning Aspect Threshold on Validation Set ===")
+    
+    # Predict on Validation Set to find best threshold
+    val_preds_output = trainer_aspect.predict(val_dataset_aspect)
+    val_logits = val_preds_output.predictions
+    val_probs = torch.sigmoid(torch.tensor(val_logits)).numpy()
+    val_true_labels = val_labels
+    
+    best_threshold = 0.5
+    best_f1 = 0.0
+    
+    thresholds = np.arange(0.1, 0.95, 0.05)
+    for thresh in thresholds:
+        val_preds_thresh = (val_probs > thresh).astype(int)
+        f1 = f1_score(val_true_labels, val_preds_thresh, average='micro')
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = thresh
+            
+    print(f"Best Threshold Found: {best_threshold:.2f} with F1: {best_f1:.4f}")
     
     print("\n=== Training Sentiment Analysis Model ===")
     
@@ -206,12 +228,14 @@ def main():
         warmup_ratio=0.1
     )
 
+
     trainer_sent = Trainer(
         model=model_sent,
         args=training_args_sent,
         train_dataset=train_dataset_sent,
         eval_dataset=val_dataset_sent,
-        compute_metrics=compute_metrics_sentiment
+        compute_metrics=compute_metrics_sentiment,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=2)]
     )
 
     trainer_sent.train()
@@ -226,8 +250,11 @@ def main():
     
     results = []
     
+    # Use the LEARNED threshold instead of hardcoded 0.5
+    print(f"Using Learned Threshold: {best_threshold:.2f}")
+    
     for i, (text_id, text) in enumerate(zip(test_ids, test_texts)):
-        pred_indices = np.where(aspect_probs[i] > 0.5)[0]
+        pred_indices = np.where(aspect_probs[i] > best_threshold)[0]
         pred_aspects = [id2aspect[idx] for idx in pred_indices]
         pred_aspects = apply_heuristics(text, pred_aspects)
         
@@ -272,7 +299,7 @@ def main():
     val_results_rows = []
     
     for i, (text_id, text) in enumerate(zip(val_eval_ids, val_eval_texts)):
-        pred_indices = np.where(val_aspect_probs[i] > 0.5)[0]
+        pred_indices = np.where(val_aspect_probs[i] > best_threshold)[0]
         pred_aspects = [id2aspect[idx] for idx in pred_indices]
         pred_aspects = apply_heuristics(text, pred_aspects)
         
@@ -353,6 +380,9 @@ def main():
                 'aspectCategory': r['aspect'],
                 'polarity': polarity
             })
+            
+        # Filter out augmented samples for clean evaluation
+        final_train_output = [r for r in final_train_output if "_aug" not in str(r['id'])]
             
         train_preds_file = 'train_preds_deberta.csv'
         print(f"Training predictions will be saved to {train_preds_file}")

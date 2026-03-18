@@ -6,6 +6,7 @@ def check_split_distribution():
     data_dir = os.path.join(base_dir, 'data')
     
     train_file = os.path.join(data_dir, 'train_split.csv') # Original unenriched split
+    train_enriched_file = os.path.join(data_dir, 'train_split_enriched.csv')
     dev_file = os.path.join(data_dir, 'dev_split.csv')
     
     if not os.path.exists(train_file):
@@ -13,20 +14,38 @@ def check_split_distribution():
         return
 
     train_df = pd.read_csv(train_file)
+    train_enriched_df = pd.read_csv(train_enriched_file)
     dev_df = pd.read_csv(dev_file)
     
     print("\n--- Class Distribution Check ---")
     print(f"Train Rows: {len(train_df)}")
+    print(f"Train (Enriched) Rows: {len(train_enriched_df)}")
     print(f"Dev Rows:   {len(dev_df)}")
     
+    print("\n--- Aspect Categories ---")
     for aspect in ['food', 'price', 'service', 'ambience', 'anecdotes/miscellaneous']:
         train_count = len(train_df[train_df['aspectCategory'] == aspect])
+        train_enriched_count = len(train_enriched_df[train_enriched_df['aspectCategory'] == aspect])
         dev_count = len(dev_df[dev_df['aspectCategory'] == aspect])
         
         train_pct = train_count / len(train_df) * 100
+        train_enriched_pct = train_enriched_count / len(train_enriched_df) * 100
         dev_pct = dev_count / len(dev_df) * 100
         
-        print(f"{aspect:<25} | Train: {train_pct:.1f}% ({train_count}) | Dev: {dev_pct:.1f}% ({dev_count})")
+        print(f"{aspect:<25} | Train: {train_pct:.1f}% ({train_count}) | Train (Enriched): {train_enriched_pct:.1f}% ({train_enriched_count}) | Dev: {dev_pct:.1f}% ({dev_count})")
+    
+    print("\n--- Polarity Classes ---")
+    for polarity in train_df['polarity'].unique():
+        train_count = len(train_df[train_df['polarity'] == polarity])
+        train_enriched_count = len(train_enriched_df[train_enriched_df['polarity'] == polarity])
+        dev_count = len(dev_df[dev_df['polarity'] == polarity])
+        
+        train_pct = train_count / len(train_df) * 100
+        train_enriched_pct = train_enriched_count / len(train_enriched_df) * 100
+        dev_pct = dev_count / len(dev_df) * 100
+        
+        print(f"{polarity:<25} | Train: {train_pct:.1f}% ({train_count}) | Train (Enriched): {train_enriched_pct:.1f}% ({train_enriched_count}) | Dev: {dev_pct:.1f}% ({dev_count})")
+
 
 if __name__ == "__main__":
     check_split_distribution()
