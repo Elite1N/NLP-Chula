@@ -2,3 +2,5 @@ Model,Setting,Training_Samples,Accuracy,Timestamp
 GPT-2 (Pre-trained),"Model=gpt2-small, TopK=1000, dev=10",Pre-trained (WebText),1.0,2026-03-19 03:02:59
 GPT-2 (Pre-trained),"Model=gpt2-small, TopK=1000, dev=1000",Pre-trained (WebText),0.603,2026-03-19 03:33:31
 GPT-2 (Pre-trained),"Model=gpt2-small, TopK=1000, dev=10000",Pre-trained (WebText),0.5971,2026-03-19 03:36:58
+GPT-2 (Pre-trained),"Model=gpt2-small, TopK=1000, dev=10, Batch=32",Pre-trained (WebText),1.0,2026-03-19 03:43:18
+GPT-2 (Pre-trained),"Model=gpt2-small, TopK=1000, dev=10000, Batch=32",Pre-trained (WebText),0.597,2026-03-19 03:46:52

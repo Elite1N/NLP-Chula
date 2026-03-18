@@ -36,20 +36,56 @@ def main():
 
     # 3. Evaluate
     print(f"Evaluating GPT-2 on {len(dev_df)} examples...")
-    accuracy = evaluate_model(model, dev_df)
+    
+    # Custom evaluation loop for batching
+    correct = 0
+    total = len(dev_df)
+    batch_size = 32 # Adjust based on GPU VRAM
+    
+    contexts = dev_df['context'].tolist()
+    first_letters = dev_df['first letter'].tolist()
+    answers = dev_df['answer'].tolist()
+    
+    import time
+    start_eval = time.time()
+    
+    # Predict in batches
+    # model.predict_batch handles the loop internally? No, I implemented it to handle a list.
+    # So we can just pass the whole list if it handles chunking, or loop here.
+    # My implementation of predict_batch handles chunking.
+    print(f"Running inference with batch size {batch_size}...")
+    predictions = model.predict_batch(contexts, first_letters, batch_size=batch_size)
+    
+    # Calculate accuracy
+    for pred, ans in zip(predictions, answers):
+        if pred == ans:
+            correct += 1
+            
+    accuracy = correct / total
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"Evaluation time: {time.time() - start_eval:.2f}s")
     
     # Save Metrics
     log_experiment_result(
         EXPERIMENT_DIR, 
         'GPT-2 (Pre-trained)', 
-        'Model=gpt2-small, TopK=1000', 
+        f'Model=gpt2-small, TopK=1000, Batch={batch_size}', 
         'Pre-trained (WebText)', 
         accuracy
     )
 
     # 4. Generate Predictions for submission (Full test set)
     # WARNING: This might take a while on CPU.
-    # generate_test_predictions(model, test_df, OUTPUT_PRED_PATH)
+    # To run this, uncomment below:
+    # print(f"Generating predictions for {len(test_df)} test examples...")
+    # test_contexts = test_df['context'].tolist()
+    # test_first_letters = test_df['first letter'].tolist()
+    # test_preds = model.predict_batch(test_contexts, test_first_letters, batch_size=batch_size)
+    # with open(OUTPUT_PRED_PATH, 'w', encoding='utf-8') as f:
+    #    for pred in test_preds:
+    #        f.write(f"{pred}\n")
+    # print(f"Saved predictions to {OUTPUT_PRED_PATH}")
+    
     print("\nSkipping test prediction generation by default to save time. Uncomment in script if needed.")
     
     # If users wants to generate predictions, they can uncomment the line above.
