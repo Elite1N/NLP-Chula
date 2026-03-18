@@ -1,5 +1,9 @@
-import os
 import pandas as pd
+import numpy as np
+import os
+from collections import Counter, defaultdict
+import time
+import re
 from utils import load_training_data, evaluate_model, generate_test_predictions
 
 # Conf
@@ -103,7 +107,8 @@ def main():
     # 1. Load Data
     # For baseline, let's use a larger subset or full set if possible. 
     # Using 200k for now to match notebook, but you can increase this.
-    train_lines = load_training_data(TRAIN_PATH, limit=200000)
+    train_limit = 200000
+    train_lines = load_training_data(TRAIN_PATH, limit=train_limit)
     dev_df = pd.read_csv(DEV_PATH)
     test_df = pd.read_csv(TEST_PATH_NO_ANSWER)
 
@@ -119,7 +124,7 @@ def main():
     # Save Metrics
     with open(METRICS_PATH, 'w') as f:
         f.write(f"Model: Backoff {MAX_N}-gram\n")
-        f.write(f"Training Data: 200000 lines\n")
+        f.write(f"Training Data: {train_limit} lines\n")
         f.write(f"Dev Accuracy: {accuracy:.4f}\n")
     print(f"Metrics saved to {METRICS_PATH}")
 
