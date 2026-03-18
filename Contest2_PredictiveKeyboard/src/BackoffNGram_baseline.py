@@ -57,6 +57,22 @@ class NGramModel:
         filtered.sort(key=lambda x: x[1], reverse=True)
         return filtered
 
+    def predict(self, context_str, first_letter):
+        context_tokens = str(context_str).split()
+        needed_len = self.n - 1
+        
+        if needed_len > 0:
+            if len(context_tokens) < needed_len:
+                return ""
+            context = tuple(context_tokens[-needed_len:])
+        else:
+            context = ()
+            
+        candidates = self.get_best_candidates(context, first_letter)
+        if candidates:
+            return candidates[0][0]
+        return ""
+
 class BackoffNGramModel:
     def __init__(self, max_n=5):
         self.models = {}
@@ -115,23 +131,29 @@ def main():
     # 2. Train Model
     MAX_N = 3
     print(f"Initializing Backoff {MAX_N}-gram model...")
-    model = BackoffNGramModel(max_n=MAX_N)
-    model.train(train_lines)
+    # Training the backoff model trains all n-gram models from 1 to MAX_N
+    backoff_model = BackoffNGramModel(max_n=MAX_N)
+    backoff_model.train(train_lines)
 
-    # 3. Evaluate
-    accuracy = evaluate_model(model, dev_df)
+    # 3. Evaluate Comparisons
+    print("\n--- Evaluating Trigram (No Backoff) ---")
+    # Access the specific NGramModel for n=3 from the backoff collection
+    trigram_no_backoff = backoff_model.models[3]
+    acc_no_backoff = evaluate_model(trigram_no_backoff, dev_df)
+
+    print("\n--- Evaluating Trigram (With Backoff) ---")
+    acc_backoff = evaluate_model(backoff_model, dev_df)
     
     # Save Metrics
+    os.makedirs(EXPERIMENT_DIR, exist_ok=True)
     with open(METRICS_PATH, 'w') as f:
-        f.write(f"Model: Backoff {MAX_N}-gram\n")
         f.write(f"Training Data: {train_limit} lines\n")
-        f.write(f"Dev Accuracy: {accuracy:.4f}\n")
+        f.write(f"Trigram (No Backoff) Accuracy: {acc_no_backoff:.4f}\n")
+        f.write(f"Backoff {MAX_N}-gram Accuracy: {acc_backoff:.4f}\n")
     print(f"Metrics saved to {METRICS_PATH}")
 
-    # 4. Generate Predictions for submission (if this was the final model)
-    # create experiment dir if not exists
-    os.makedirs(EXPERIMENT_DIR, exist_ok=True)
-    generate_test_predictions(model, test_df, OUTPUT_PRED_PATH)
+    # 4. Generate Predictions for submission (using the better model, usually backoff)
+    generate_test_predictions(backoff_model, test_df, OUTPUT_PRED_PATH)
 
 if __name__ == "__main__":
     main()
