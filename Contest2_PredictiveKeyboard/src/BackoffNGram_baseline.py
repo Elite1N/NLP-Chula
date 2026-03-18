@@ -4,7 +4,8 @@ import os
 from collections import Counter, defaultdict
 import time
 import re
-from utils import load_training_data, evaluate_model, generate_test_predictions
+import csv
+from utils import load_training_data, evaluate_model, generate_test_predictions, log_experiment_result
 
 # Conf
 TRAIN_PATH = '../data/train.src.tok'
@@ -121,15 +122,14 @@ class BackoffNGramModel:
 
 def main():
     # 1. Load Data
-    # For baseline, let's use a larger subset or full set if possible. 
-    # Using 200k for now to match notebook, but you can increase this.
+    # Using 200k at first, might experiment on larger training samples
     train_limit = 200000
     train_lines = load_training_data(TRAIN_PATH, limit=train_limit)
     dev_df = pd.read_csv(DEV_PATH)
     test_df = pd.read_csv(TEST_PATH_NO_ANSWER)
 
     # 2. Train Model
-    MAX_N = 3
+    MAX_N = 3  #TODO: change this to change the N-gram config!
     print(f"Initializing Backoff {MAX_N}-gram model...")
     # Training the backoff model trains all n-gram models from 1 to MAX_N
     backoff_model = BackoffNGramModel(max_n=MAX_N)
@@ -137,23 +137,32 @@ def main():
 
     # 3. Evaluate Comparisons
     print("\n--- Evaluating Trigram (No Backoff) ---")
-    # Access the specific NGramModel for n=3 from the backoff collection
-    trigram_no_backoff = backoff_model.models[3]
+    # Access the specific NGramModel for n=MAX_N layer from the backoff collection
+    trigram_no_backoff = backoff_model.models[MAX_N]
     acc_no_backoff = evaluate_model(trigram_no_backoff, dev_df)
 
     print("\n--- Evaluating Trigram (With Backoff) ---")
     acc_backoff = evaluate_model(backoff_model, dev_df)
     
-    # Save Metrics
-    os.makedirs(EXPERIMENT_DIR, exist_ok=True)
-    with open(METRICS_PATH, 'w') as f:
-        f.write(f"Training Data: {train_limit} lines\n")
-        f.write(f"Trigram (No Backoff) Accuracy: {acc_no_backoff:.4f}\n")
-        f.write(f"Backoff {MAX_N}-gram Accuracy: {acc_backoff:.4f}\n")
-    print(f"Metrics saved to {METRICS_PATH}")
+    # Save Metrics to CSV
+    log_experiment_result(
+        EXPERIMENT_DIR, 
+        'N-Gram (No Backoff) Model', 
+        f'N={MAX_N}', 
+        train_limit, 
+        acc_no_backoff
+    )
+    log_experiment_result(
+        EXPERIMENT_DIR, 
+        'Backoff N-Gram Model', 
+        f'Max N={MAX_N}', 
+        train_limit, 
+        acc_backoff
+    )
 
     # 4. Generate Predictions for submission (using the better model, usually backoff)
-    generate_test_predictions(backoff_model, test_df, OUTPUT_PRED_PATH)
+    OUTPUT_PRED_PATH = os.path.join(EXPERIMENT_DIR, f'test_set_pred_{MAX_N}_{train_limit}.txt') #TODO: this is bandaid, might do sumthing later
+    generate_test_predictions(backoff_model, test_df, OUTPUT_PRED_PATH )
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,5 @@
 Training Data: 200000 lines
 Trigram (No Backoff) Accuracy: 0.3893
 Backoff 3-gram Accuracy: 0.5191
+Trigram (No Backoff) Accuracy: 0.2316
+Backoff 4-gram Accuracy: 0.5261
