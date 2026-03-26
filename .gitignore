@@ -5,22 +5,19 @@ PA1 Text Classification/data/financial-news-train.csv
 PA1 Text Classification/data/__MACOSX/._financial-news-test.csv
 PA1 Text Classification/data/__MACOSX/._financial-news-train.csv
 PA1 Text Classification/.env
-
 PA1_TextClassification/data
 PA1_TextClassification/.env
-Contest1_SentimentAnalysis/~$ntest1_Thanaphon.docx
-Contest1_SentimentAnalysis/~$mple Experiment Report.pdf
-Docs/Contest1_Thanaphon.docx
-Docs/PA1_Thanaphon.docx
-Docs/Sample Experiment Report.pdf
-Docs/Contest 1 – Aspect-based Sentiment Analysis.pdf
-Docs/~$ntest2_Thanaphon.docx
-Docs/Contest 2 - Predictive typing.pdf
-Docs/Contest2_Thanaphon.docx
-Contest2_PredictiveKeyboard/experiments/lstm_baseline/lstm_model.pth
+Docs/*
+
+# Whatever
+*.env
+*.json
+*.env
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
+*.tmp
 
 # Models and Checkpoints
 *.pth
@@ -30,20 +27,7 @@ __pycache__/
 *.pkl
 *.h5
 *.onnx
+*.safetensors
 
 # Jupyter
 .ipynb_checkpoints/
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/config.json
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/tokenizer.json
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/tokenizer_config.json
-Contest2_PredictiveKeyboard/src/__pycache__/gpt2_model.cpython-312.pyc
-Contest2_PredictiveKeyboard/src/__pycache__/utils.cpython-312.pyc
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/checkpoint-625/config.json
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/checkpoint-625/tokenizer_config.json
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/model.safetensors
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/checkpoint-625/model.safetensors
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/checkpoint-625/tokenizer.json
-Contest2_PredictiveKeyboard/experiments/roberta_baseline/checkpoint-625/trainer_state.json
-Contest2_PredictiveKeyboard/src/__pycache__/gpt2_model.cpython-312.pyc
-Contest2_PredictiveKeyboard/src/__pycache__/utils.cpython-312.pyc
-Docs/~WRL0005.tmp
