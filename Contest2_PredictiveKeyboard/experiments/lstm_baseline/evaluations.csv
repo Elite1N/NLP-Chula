@@ -1,0 +1,2 @@
+Model,Setting,Training_Samples,Accuracy,Timestamp
+LSTM (From Scratch),"Embed=128, Hidden=256, Seq=5, Epochs=3",50k lines (Subset),0.5195043501186396,2026-03-19 22:08:59

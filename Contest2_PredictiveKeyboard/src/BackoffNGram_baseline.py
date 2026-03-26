@@ -13,7 +13,7 @@ DEV_PATH = '../data/dev_set.csv'
 TEST_PATH_NO_ANSWER = '../data/test_set_no_answer.csv'
 EXPERIMENT_DIR = '../experiments/ngram_baseline'
 OUTPUT_PRED_PATH = os.path.join(EXPERIMENT_DIR, 'test_set_pred.txt')
-METRICS_PATH = os.path.join(EXPERIMENT_DIR, 'metrics.txt')
+#METRICS_PATH = os.path.join(EXPERIMENT_DIR, 'metrics.txt')
 class NGramModel:
     def __init__(self, n=3):
         self.n = n
@@ -85,6 +85,24 @@ class BackoffNGramModel:
         for n in range(1, self.max_n + 1):
             self.models[n].train(lines)
 
+    def save(self, filepath):
+        import pickle
+        print(f"Saving model to {filepath}...")
+        with open(filepath, 'wb') as f:
+            pickle.dump(self.models, f)
+        print("Model saved.")
+
+    @staticmethod
+    def load(filepath):
+        import pickle
+        print(f"Loading model from {filepath}...")
+        instance = BackoffNGramModel(max_n=1) # dummy init
+        with open(filepath, 'rb') as f:
+            instance.models = pickle.load(f)
+            instance.max_n = max(instance.models.keys())
+        print(f"Model loaded with max_n={instance.max_n}.")
+        return instance
+
     def predict(self, context_str, first_letter):
         # Tokenize context just in case (though input is string)
         # The context in csv is a string. "word1 word2 word3 ..."
@@ -123,13 +141,13 @@ class BackoffNGramModel:
 def main():
     # 1. Load Data
     # Using 200k at first, might experiment on larger training samples
-    train_limit = 200000
+    train_limit = None
     train_lines = load_training_data(TRAIN_PATH, limit=train_limit)
     dev_df = pd.read_csv(DEV_PATH)
     test_df = pd.read_csv(TEST_PATH_NO_ANSWER)
 
     # 2. Train Model
-    MAX_N = 3  #TODO: change this to change the N-gram config!
+    MAX_N = 5  #TODO: change this to change the N-gram config!
     print(f"Initializing Backoff {MAX_N}-gram model...")
     # Training the backoff model trains all n-gram models from 1 to MAX_N
     backoff_model = BackoffNGramModel(max_n=MAX_N)

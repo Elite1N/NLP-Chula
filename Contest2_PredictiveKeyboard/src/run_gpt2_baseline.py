@@ -77,16 +77,16 @@ def main():
     # 4. Generate Predictions for submission (Full test set)
     # WARNING: This might take a while on CPU.
     # To run this, uncomment below:
-    # print(f"Generating predictions for {len(test_df)} test examples...")
-    # test_contexts = test_df['context'].tolist()
-    # test_first_letters = test_df['first letter'].tolist()
-    # test_preds = model.predict_batch(test_contexts, test_first_letters, batch_size=batch_size)
-    # with open(OUTPUT_PRED_PATH, 'w', encoding='utf-8') as f:
-    #    for pred in test_preds:
-    #        f.write(f"{pred}\n")
-    # print(f"Saved predictions to {OUTPUT_PRED_PATH}")
+    print(f"Generating predictions for {len(test_df)} test examples...")
+    test_contexts = test_df['context'].tolist()
+    test_first_letters = test_df['first letter'].tolist()
+    test_preds = model.predict_batch(test_contexts, test_first_letters, batch_size=batch_size)
+    with open(OUTPUT_PRED_PATH, 'w', encoding='utf-8') as f:
+        for pred in test_preds:
+            f.write(f"{pred}\n")
+    print(f"Saved predictions to {OUTPUT_PRED_PATH}")
     
-    print("\nSkipping test prediction generation by default to save time. Uncomment in script if needed.")
+    #print("\nSkipping test prediction generation by default to save time. Uncomment in script if needed.")
     
     # If users wants to generate predictions, they can uncomment the line above.
     # Or we can make it an argument. For now, let's keep it safe.

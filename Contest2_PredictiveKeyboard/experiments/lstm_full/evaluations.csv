@@ -1,0 +1,4 @@
+Model,Setting,Training_Samples,Accuracy,Timestamp
+LSTM (Full),"Embed=128, Hidden=256, Seq=5, Epochs=1",Full Dataset (Actually 500k?),0.5267703664645399,2026-03-19 23:18:04
+LSTM (Full),"Embed=128, Hidden=256, Seq=5, Epochs=1",Full Dataset,0.525,2026-03-19 23:25:44
+LSTM (Full),"Embed=128, Hidden=256, Seq=5, Epochs=5",2M,0.5871658317954126,2026-03-20 09:03:05

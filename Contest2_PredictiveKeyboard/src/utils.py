@@ -14,7 +14,7 @@ def load_training_data(filepath, limit=None):
     print(f"Loaded {len(lines)} lines.")
     return lines
 
-def log_experiment_result(experiment_dir, model_name, setting, training_samples, accuracy, filename='metrics.csv'):
+def log_experiment_result(experiment_dir, model_name, setting, training_samples, accuracy, filename='evaluations.csv'):
     os.makedirs(experiment_dir, exist_ok=True)
     metrics_path = os.path.join(experiment_dir, filename)
     file_exists = os.path.isfile(metrics_path)
