@@ -1,16 +1,8 @@
-test.ipynb
 .gitignore
-PA1 Text Classification/data/financial-news-test.csv
-PA1 Text Classification/data/financial-news-train.csv
-PA1 Text Classification/data/__MACOSX/._financial-news-test.csv
-PA1 Text Classification/data/__MACOSX/._financial-news-train.csv
-PA1 Text Classification/.env
-PA1_TextClassification/data
-PA1_TextClassification/.env
-Docs/*
 
-# Whatever
-*.env
+# Infra
+Docs/*
+*/data
 *.json
 *.env
 # Python
