@@ -18,6 +18,7 @@ def compute_metrics(eval_preds):
     if isinstance(preds, tuple):
         preds = preds[0]
         
+    preds = np.where(preds != -100, preds, tokenizer.pad_token_id)
     decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
     # Replace -100 in the labels as we can't decode them.
     labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
@@ -38,14 +39,12 @@ def preprocess_function(examples):
     target_texts = [" ".join(list(str(t))) for t in examples["target"]]
     
     model_inputs = tokenizer(source_texts, max_length=64, truncation=True)
-    
-    with tokenizer.as_target_tokenizer():
-        labels = tokenizer(target_texts, max_length=64, truncation=True)
+    labels = tokenizer(text_target=target_texts, max_length=64, truncation=True)
         
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
 
-def train_t5(model_name, dataset_dict, output_dir, learning_rate=5e-4, num_epochs=10):
+def train_t5(model_name, dataset_dict, output_dir, learning_rate=5e-4, num_epochs=1):
     # Base minimal architecture for character-to-character baseline
     config = T5Config(
         vocab_size=len(tokenizer),
@@ -67,7 +66,7 @@ def train_t5(model_name, dataset_dict, output_dir, learning_rate=5e-4, num_epoch
     # Set up training arguments
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         save_strategy="epoch",
         learning_rate=learning_rate,
         per_device_train_batch_size=64,
@@ -76,7 +75,7 @@ def train_t5(model_name, dataset_dict, output_dir, learning_rate=5e-4, num_epoch
         save_total_limit=3,
         num_train_epochs=num_epochs,
         predict_with_generate=True,
-        logging_dir=f"{output_dir}/logs",
+        generation_max_length=64,
         logging_steps=50,
         load_best_model_at_end=True,
         metric_for_best_model="cer",
@@ -92,7 +91,7 @@ def train_t5(model_name, dataset_dict, output_dir, learning_rate=5e-4, num_epoch
         train_dataset=dataset_dict["train"],
         eval_dataset=dataset_dict["test"],
         data_collator=data_collator,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         compute_metrics=compute_metrics
     )
 
@@ -121,6 +120,8 @@ if __name__ == "__main__":
     
     if args.use_silver and os.path.exists('../data/processed/processed-train-silver.csv'):
         silver_df = pd.read_csv('../data/processed/processed-train-silver.csv')
+        # Subsample silver data to 20k to prevent unreasonable training times
+        silver_df = silver_df.sample(n=min(20000, len(silver_df)), random_state=42)
         train_df = pd.concat([gold_df, silver_df]).sample(frac=1).reset_index(drop=True)
     else:
         train_df = gold_df
