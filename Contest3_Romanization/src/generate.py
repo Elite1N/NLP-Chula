@@ -18,7 +18,7 @@ def generate_predictions(model_path, test_csv, output_txt, max_length=64):
     
     for idx, row in df.iterrows():
         # Space-separated characters for character-level tokenization
-        text = " ".join(list(str(row['name'])))
+        text = " ".join(list(str(row['name']))) + " " + tokenizer.eos_token
         
         inputs = tokenizer(text, return_tensors="pt").input_ids.to(device)
         

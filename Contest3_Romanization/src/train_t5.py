@@ -28,15 +28,19 @@ def compute_metrics(eval_preds):
     cer_metric = evaluate.load("cer")
     cer = cer_metric.compute(predictions=decoded_preds, references=decoded_labels)
     
+    chrf_metric = evaluate.load("chrf")
+    chrf = chrf_metric.compute(predictions=decoded_preds, references=[[l] for l in decoded_labels])
+    
     exact_matches = sum(p.strip() == l.strip() for p, l in zip(decoded_preds, decoded_labels))
     em_score = exact_matches / len(decoded_labels)
 
-    return {"cer": cer, "exact_match": em_score}
+    return {"cer": cer, "chrf": chrf["score"], "exact_match": em_score}
 
 def preprocess_function(examples):
     # Insert spaces between characters to ensure char-level tokenization works perfectly
-    source_texts = [" ".join(list(str(s))) for s in examples["source"]]
-    target_texts = [" ".join(list(str(t))) for t in examples["target"]]
+    # VERY IMPORTANT: explicitly append the eos_token so the Seq2Seq model learns to stop generation
+    source_texts = [" ".join(list(str(s))) + " " + tokenizer.eos_token for s in examples["source"]]
+    target_texts = [" ".join(list(str(t))) + " " + tokenizer.eos_token for t in examples["target"]]
     
     model_inputs = tokenizer(source_texts, max_length=64, truncation=True)
     labels = tokenizer(text_target=target_texts, max_length=64, truncation=True)
@@ -44,7 +48,7 @@ def preprocess_function(examples):
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
 
-def train_t5(model_name, dataset_dict, output_dir, learning_rate=5e-4, num_epochs=1):
+def train_t5(model_name, dataset_dict, output_dir, learning_rate=5e-4, num_epochs=50):
     # Base minimal architecture for character-to-character baseline
     config = T5Config(
         vocab_size=len(tokenizer),
